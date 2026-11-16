@@ -101,6 +101,9 @@ obj.Attention = "Locket VIP Activated (Video 30s + AI Filters + Photobooth)!";
 obj.entries = obj.entries || {};
 obj.entries.cache_ttl_seconds = "0";
 obj.entries.client_cache_ttl_sec = "0";
+obj.entries.cache_expiration_duration_seconds = "0";
+obj.entries.fetch_interval_seconds = "0";
+obj.entries.minimum_fetch_interval_seconds = "0";
 
 // ============================================================
 // 1. CẤU HÌNH GOLD, FEATURE GATES & PAYWALL
@@ -6664,4 +6667,10 @@ var customPhotoboothFilters = [
         ])
     });
 
-$done({ body: JSON.stringify(obj) });
+$done({
+    status: 200,
+    headers: {
+        "Content-Type": "application/json; charset=utf-8"
+    },
+    body: JSON.stringify(obj)
+});

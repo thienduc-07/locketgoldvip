@@ -61,4 +61,10 @@ obj.subscriber.entitlements["locket_gold"] = goldEntitlement;
 
 obj.Attention = "Locket VIP Activated (Gold Lifetime)!";
 
-$done({ body: JSON.stringify(obj) });
+$done({
+    status: 200,
+    headers: {
+        "Content-Type": "application/json; charset=utf-8"
+    },
+    body: JSON.stringify(obj)
+});
