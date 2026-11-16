@@ -42,3 +42,4 @@ locket-gold-hub/
    - `shadowrocket`: commit và push lên GitHub (link raw tự động cập nhật).
    - `proxy`: deploy tự động sang Fly.io (`flyctl deploy --app locket-proxy`).
    - `web portal`: deploy tự động sang Vercel (`vercel deploy --prod`).
+# locketgoldvip
