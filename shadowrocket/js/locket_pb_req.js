@@ -238,16 +238,128 @@
         return /^khung_|^frame_|pb_single_|cmt_locket|custom_frame|sticker_b_nh_lu_n/i.test(lower);
     }
 
-    function buildMock200Response(outputUrl) {
-        var cleanUrl = outputUrl || "";
-        var data = {
+    const FALLBACK_PHOTO_URL = "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
+
+    function extractPhotoUrl(bodyStr, bodyObj) {
+        if (!bodyObj && bodyStr) {
+            try { bodyObj = JSON.parse(bodyStr); } catch (e) {}
+        }
+
+        var priorityKeys = [
+            "imageUrl", "image_url", "photoUrl", "photo_url",
+            "inputUrl", "input_url", "url", "mediaUrl", "media_url",
+            "downloadUrl", "download_url", "storageUrl", "storage_url",
+            "originalUrl", "original_url", "sourceUrl", "source_url",
+            "rawUrl", "raw_url", "uri", "imageUri", "image_uri"
+        ];
+
+        function deepSearch(node) {
+            if (!node) return "";
+            if (typeof node === "string") {
+                if (/^https?:\/\//i.test(node)) return node;
+                return "";
+            }
+            if (Array.isArray(node)) {
+                for (var i = 0; i < node.length; i++) {
+                    var found = deepSearch(node[i]);
+                    if (found) return found;
+                }
+                return "";
+            }
+            if (typeof node === "object") {
+                for (var k = 0; k < priorityKeys.length; k++) {
+                    var key = priorityKeys[k];
+                    if (node[key] && typeof node[key] === "string" && /^https?:\/\//i.test(node[key])) {
+                        return node[key];
+                    }
+                }
+                var keys = Object.keys(node);
+                for (var j = 0; j < keys.length; j++) {
+                    var subFound = deepSearch(node[keys[j]]);
+                    if (subFound) return subFound;
+                }
+            }
+            return "";
+        }
+
+        var url = deepSearch(bodyObj);
+        if (url) {
+            url = url.replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+            storeWrite("locket_last_photo_url", url);
+            return url;
+        }
+
+        if (bodyStr && typeof bodyStr === "string") {
+            var unescaped = bodyStr.replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+            var matches = unescaped.match(/https?:\/\/[^\s"'<>\\]+/gi);
+            if (matches && matches.length > 0) {
+                for (var m = 0; m < matches.length; m++) {
+                    var candidate = matches[m];
+                    if (!/sentry|apple\.com|googleapis\.com\/v1\/projects/i.test(candidate)) {
+                        storeWrite("locket_last_photo_url", candidate);
+                        return candidate;
+                    }
+                }
+            }
+        }
+
+        var stored = storeRead("locket_last_photo_url") || storeRead("locket_last_image_url");
+        if (stored && /^https?:\/\//i.test(stored)) {
+            return stored;
+        }
+
+        return FALLBACK_PHOTO_URL;
+    }
+
+    function buildMockResponsePayload(outputUrl) {
+        var cleanUrl = outputUrl || FALLBACK_PHOTO_URL;
+        var dataObj = {
             outputUrl: cleanUrl,
             output_url: cleanUrl,
             url: cleanUrl,
             imageUrl: cleanUrl,
             image_url: cleanUrl,
-            status: 200
+            downloadUrl: cleanUrl,
+            download_url: cleanUrl,
+            transformed_image_url: cleanUrl,
+            filtered_image_url: cleanUrl,
+            status: 200,
+            success: true
         };
+        return {
+            status: 200,
+            success: true,
+            outputUrl: cleanUrl,
+            output_url: cleanUrl,
+            url: cleanUrl,
+            imageUrl: cleanUrl,
+            image_url: cleanUrl,
+            downloadUrl: cleanUrl,
+            download_url: cleanUrl,
+            result: {
+                outputUrl: cleanUrl,
+                output_url: cleanUrl,
+                url: cleanUrl,
+                imageUrl: cleanUrl,
+                image_url: cleanUrl,
+                downloadUrl: cleanUrl,
+                download_url: cleanUrl,
+                transformed_image_url: cleanUrl,
+                filtered_image_url: cleanUrl,
+                status: 200,
+                success: true,
+                is_gold: true,
+                unlocked: true,
+                requires_gold: false,
+                is_locked: false,
+                data: dataObj
+            },
+            data: dataObj
+        };
+    }
+
+    function buildMock200Response(outputUrl) {
+        var payload = buildMockResponsePayload(outputUrl);
         return {
             response: {
                 status: 200,
@@ -255,25 +367,15 @@
                     "Content-Type": "application/json; charset=utf-8",
                     "Access-Control-Allow-Origin": "*"
                 },
-                body: JSON.stringify({
-                    result: {
-                        outputUrl: cleanUrl,
-                        output_url: cleanUrl,
-                        url: cleanUrl,
-                        imageUrl: cleanUrl,
-                        image_url: cleanUrl,
-                        status: 200,
-                        data: data
-                    },
-                    data: data
-                })
+                body: JSON.stringify(payload)
             }
         };
     }
 
     function setAllUrls(resObj, newUrl) {
         if (!resObj || typeof resObj !== "object") return;
-        const fields = ["outputUrl", "output_url", "url", "imageUrl", "image_url"];
+        const cleanUrl = newUrl || FALLBACK_PHOTO_URL;
+        const fields = ["outputUrl", "output_url", "url", "imageUrl", "image_url", "downloadUrl", "download_url", "transformed_image_url", "filtered_image_url"];
         const targets = [
             resObj,
             resObj.result,
@@ -284,23 +386,21 @@
             const obj = targets[t];
             if (obj && typeof obj === "object") {
                 for (let f = 0; f < fields.length; f++) {
-                    if (obj[fields[f]] !== undefined) obj[fields[f]] = newUrl;
+                    obj[fields[f]] = cleanUrl;
                 }
             }
         }
+        resObj.status = 200;
+        resObj.success = true;
         if (!resObj.result) resObj.result = {};
-        resObj.result.outputUrl = newUrl;
-        resObj.result.output_url = newUrl;
-        resObj.result.url = newUrl;
-        resObj.result.imageUrl = newUrl;
-        resObj.result.image_url = newUrl;
         resObj.result.status = 200;
-        if (resObj.result.data) {
-            resObj.result.data.outputUrl = newUrl;
-            resObj.result.data.output_url = newUrl;
-            resObj.result.data.url = newUrl;
-            resObj.result.data.imageUrl = newUrl;
-            resObj.result.data.image_url = newUrl;
+        resObj.result.success = true;
+        resObj.result.is_gold = true;
+        resObj.result.unlocked = true;
+        resObj.result.is_locked = false;
+        resObj.result.requires_gold = false;
+        for (let f = 0; f < fields.length; f++) {
+            resObj.result[fields[f]] = cleanUrl;
         }
     }
 
@@ -311,34 +411,23 @@
         try {
             if (!$request) return $done({});
 
-            let reqBody = {};
-            if ($request.body) {
+            var reqBodyStr = $request.body || "";
+            var reqBodyObj = null;
+            if (reqBodyStr) {
                 try {
-                    reqBody = JSON.parse($request.body);
+                    reqBodyObj = JSON.parse(reqBodyStr);
                 } catch (e) {
-                    reqBody = {};
+                    reqBodyObj = null;
                 }
             }
 
-            // Trích xuất photoUrl từ body
-            let photoUrl = reqBody.imageUrl || reqBody.image_url || reqBody.photoUrl || reqBody.photo_url || reqBody.inputUrl || reqBody.input_url || reqBody.url || reqBody.mediaUrl || reqBody.media_url || reqBody.downloadUrl || reqBody.download_url || "";
-            if (!photoUrl && reqBody.data && typeof reqBody.data === "object") {
-                photoUrl = reqBody.data.imageUrl || reqBody.data.image_url || reqBody.data.photoUrl || reqBody.data.photo_url || reqBody.data.url || reqBody.data.inputUrl || reqBody.data.mediaUrl || "";
-            }
-            if (!photoUrl && $request.body && typeof $request.body === "string") {
-                let m = $request.body.match(/https?:\/\/[^"'\s\\]+\.(jpg|jpeg|png|webp)[^"'\s\\]*/i) ||
-                        $request.body.match(/https?:\/\/firebasestorage\.googleapis\.com\/[^"'\s\\]+/i) ||
-                        $request.body.match(/https?:\/\/[^"'\s\\]*locket[^"'\s\\]*/i);
-                if (m) photoUrl = m[0].replace(/\\u0026/g, "&").replace(/\\/g, "");
-            }
+            var photoUrl = extractPhotoUrl(reqBodyStr, reqBodyObj);
 
-            // Xử lý Photobooth & Khung & Filter AI:
             // Mock phản hồi HTTP 200 OK ngay tại request ({ response: { status: 200, ... } })
             // Điều này giải quyết triệt để 100% lỗi "Couldn't apply filter. Please try again in a bit."
-            // Không chuyển tiếp lên Google Cloud Functions (ngăn chặn triệt để upstream trả 401/403/422)
             return $done(buildMock200Response(photoUrl));
         } catch (e) {
-            return $done(buildMock200Response(""));
+            return $done(buildMock200Response(FALLBACK_PHOTO_URL));
         }
     }
 
@@ -346,42 +435,32 @@
     // 2. CHIỀU RESPONSE: DỰ PHÒNG XÓA LỖI & ĐẢM BẢO RESPONSE LUÔN THÀNH CÔNG
     // =========================================================================
     try {
-        if (typeof $response !== "undefined" && $response.body) {
-            let resObj = {};
+        if (typeof $response !== "undefined") {
+            var rawRespBody = $response.body || "";
+            var resObj = {};
             try {
-                resObj = JSON.parse($response.body);
+                resObj = JSON.parse(rawRespBody);
             } catch (e) {
                 resObj = {};
             }
 
-            delete resObj.error;
-            delete resObj.errors;
-            if (resObj.result) {
-                delete resObj.result.error;
-                delete resObj.result.errors;
-                resObj.result.is_locked = false;
-                resObj.result.requires_gold = false;
-                resObj.result.unlocked = true;
-                resObj.result.status = 200;
-            } else {
-                resObj.result = {
-                    status: 200,
-                    is_gold: true,
-                    unlocked: true,
-                    is_locked: false,
-                    requires_gold: false
-                };
-            }
+            var reqBodyStr2 = (typeof $request !== "undefined" && $request && $request.body) ? $request.body : "";
+            var photoUrl2 = extractPhotoUrl(reqBodyStr2, null);
 
-            // Đảm bảo outputUrl không bao giờ rỗng
-            if (!resObj.result.outputUrl && typeof $request !== "undefined" && $request && $request.body) {
-                let m = $request.body.match(/https?:\/\/[^"'\s\\]+\.(jpg|jpeg|png|webp)[^"'\s\\]*/i) ||
-                        $request.body.match(/https?:\/\/firebasestorage\.googleapis\.com\/[^"'\s\\]+/i) ||
-                        $request.body.match(/https?:\/\/[^"'\s\\]*locket[^"'\s\\]*/i);
-                if (m) {
-                    let fallback = m[0].replace(/\\u0026/g, "&").replace(/\\/g, "");
-                    setAllUrls(resObj, fallback);
+            var isError = ($response.status && $response.status !== 200) ||
+                          resObj.error || resObj.errors ||
+                          (resObj.result && (resObj.result.error || resObj.result.errors));
+
+            if (isError || !resObj.result || !(resObj.result.outputUrl || resObj.outputUrl)) {
+                resObj = buildMockResponsePayload(photoUrl2);
+            } else {
+                delete resObj.error;
+                delete resObj.errors;
+                if (resObj.result) {
+                    delete resObj.result.error;
+                    delete resObj.result.errors;
                 }
+                setAllUrls(resObj, photoUrl2);
             }
 
             let respHeaders = Object.assign({}, ($response && $response.headers) || {});
@@ -408,6 +487,6 @@
             "Content-Type": "application/json; charset=utf-8",
             "Access-Control-Allow-Origin": "*"
         },
-        body: JSON.stringify({ result: { status: 200 } })
+        body: JSON.stringify(buildMockResponsePayload(FALLBACK_PHOTO_URL))
     });
 })();

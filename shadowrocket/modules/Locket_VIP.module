@@ -42,12 +42,12 @@ deleteHeader_RC = type=http-request, pattern=^https:\/\/api\.revenuecat\.com\/.+
 deleteHeader_Firebase = type=http-request, pattern=^https?:\/\/firebaseremoteconfig\.googleapis\.com\/v1\/projects\/locket-4252a\/.+, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_firebase_request.js, timeout=60
 locket_rc = type=http-response, pattern=^https:\/\/firebaseremoteconfig\.googleapis\.com\/v1\/projects\/locket-4252a\/.+, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_firebase_response.js, requires-body=true, max-size=-1, timeout=60
 
-# --- 3. LOCKET API: Mở khóa huy hiệu Gold chính chủ, bypass paywall ---
-locket_api = type=http-response, pattern=^https?:\/\/api\.locketcamera\.com\/.+, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_filter_response.js, requires-body=true, max-size=-1, timeout=60
+# --- 3. PHOTOBOOTH & AI FILTER ENGINE (RealTrueHieu & Hakaiz V2): Render AI & Photobooth không lỗi ---
+locket_pb_req = type=http-request, pattern=^https?:\/\/.*(cloudfunctions\.net|locketcamera\.com).*\/generateFilteredImage.*, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_pb_req.js, requires-body=true, max-size=-1, timeout=60
+locket_pb_res = type=http-response, pattern=^https?:\/\/.*(cloudfunctions\.net|locketcamera\.com).*\/generateFilteredImage.*, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_pb_req.js, requires-body=true, max-size=-1, timeout=60
 
-# --- 4. PHOTOBOOTH & AI FILTER ENGINE (RealTrueHieu & Hakaiz V2): Render AI & Photobooth không lỗi ---
-locket_pb_req = type=http-request, pattern=^https?:\/\/(us-central1-locket-4252a\.cloudfunctions\.net|api\.locketcamera\.com)\/generateFilteredImage, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_pb_req.js, requires-body=true, max-size=-1, timeout=60
-locket_pb_res = type=http-response, pattern=^https?:\/\/(us-central1-locket-4252a\.cloudfunctions\.net|api\.locketcamera\.com)\/generateFilteredImage, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_pb_req.js, requires-body=true, max-size=-1, timeout=60
+# --- 4. LOCKET API: Mở khóa huy hiệu Gold chính chủ, bypass paywall ---
+locket_api = type=http-response, pattern=^https?:\/\/api\.locketcamera\.com\/.+, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_filter_response.js, requires-body=true, max-size=-1, timeout=60
 
 # --- 5. AUDIO & VIDEO DIAGNOSTICS: Giám sát luồng upload video GCS & tạo moment ---
 locket_audio_storage = type=http-response, pattern=^https?:\/\/storage\.googleapis\.com\/.+, script-path=https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/js/locket_audio_diagnostics.js, requires-body=true, max-size=262144, timeout=60
@@ -57,4 +57,4 @@ locket_audio_req = type=http-request, pattern=^https?:\/\/api\.locketcamera\.com
 firebaseremoteconfigrealtime.googleapis.com = 0.0.0.0
 
 [MITM]
-hostname = %APPEND% api.revenuecat.com, firebaseremoteconfig.googleapis.com, api.locketcamera.com, *.locketcamera.com, us-central1-locket-4252a.cloudfunctions.net, storage.googleapis.com
+hostname = %APPEND% api.revenuecat.com, firebaseremoteconfig.googleapis.com, api.locketcamera.com, *.locketcamera.com, *.cloudfunctions.net, us-central1-locket-4252a.cloudfunctions.net, storage.googleapis.com, firebasestorage.googleapis.com

@@ -92,3 +92,57 @@ test('locket_pb_req [RESPONSE]: strips errors from upstream 403 and returns 200 
   assert.strictEqual(body.result.requires_gold, false);
 });
 
+test('locket_pb_req [REQUEST]: extracts input_url and escaped slashes without empty outputUrl', () => {
+  const result = runScript({
+    $request: {
+      url: 'https://api.locketcamera.com/generateFilteredImage',
+      body: '{"data":{"input_url":"https:\\/\\/storage.googleapis.com\\/locket-4252a.appspot.com\\/moments\\/snap123.jpg","filter_id":"khung_nh_shin_chan_vi_n_m_nh"}}'
+    }
+  });
+
+  assert(result && result.response);
+  assert.strictEqual(result.response.status, 200);
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.result.outputUrl, 'https://storage.googleapis.com/locket-4252a.appspot.com/moments/snap123.jpg');
+  assert.strictEqual(body.outputUrl, 'https://storage.googleapis.com/locket-4252a.appspot.com/moments/snap123.jpg');
+});
+
+test('locket_pb_req [REQUEST]: falls back to default CDN url when no photo is present (never empty string)', () => {
+  const result = runScript({
+    $request: {
+      url: 'https://api.locketcamera.com/generateFilteredImage',
+      body: JSON.stringify({ data: { filter_id: 'some_filter' } })
+    }
+  });
+
+  assert(result && result.response);
+  const body = JSON.parse(result.response.body);
+  assert(body.result.outputUrl.length > 0);
+  assert(body.result.outputUrl.startsWith('https://'));
+});
+
+test('locket_filter_response [RESPONSE]: generates mock 200 OK when generateFilteredImage passes through', () => {
+  const filterScript = fs.readFileSync('shadowrocket/js/locket_filter_response.js', 'utf8');
+  let doneResult = null;
+  const context = {
+    $request: {
+      url: 'https://api.locketcamera.com/generateFilteredImage',
+      body: JSON.stringify({ data: { imageUrl: 'https://storage.googleapis.com/test.jpg' } })
+    },
+    $response: {
+      status: 403,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ error: 'forbidden' })
+    },
+    $done: (val) => { doneResult = val; },
+    console: console
+  };
+  vm.runInNewContext(filterScript, context);
+
+  assert(doneResult, 'Expected locket_filter_response to handle generateFilteredImage');
+  assert.strictEqual(doneResult.status, 200);
+  const resBody = JSON.parse(doneResult.body);
+  assert.strictEqual(resBody.result.status, 200);
+  assert.strictEqual(resBody.result.outputUrl, 'https://storage.googleapis.com/test.jpg');
+});
+
