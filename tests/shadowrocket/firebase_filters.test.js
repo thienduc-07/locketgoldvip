@@ -126,4 +126,32 @@ lookFilters.forEach(f => {
     assert.strictEqual(f.overlay, false, "Expected Look filter overlay to be false");
 });
 
+// Test Camera Filter Button & Entry Point Regression
+assert.strictEqual(cfg.showFilterButton, true, "Expected showFilterButton to be true");
+assert.strictEqual(cfg.show_filter_button, true, "Expected show_filter_button to be true");
+assert.strictEqual(cfg.sheetEnabled, true, "Expected sheetEnabled to be true");
+assert.strictEqual(cfg.sheet_enabled, true, "Expected sheet_enabled to be true");
+assert.strictEqual(cfg.openSheetImmediately, false, "Expected openSheetImmediately to be false");
+assert.strictEqual(cfg.open_sheet_immediately, false, "Expected open_sheet_immediately to be false");
+assert.strictEqual(cfg.filters.length, 117, "Expected filters array to contain 117 items");
+assert.strictEqual(cfg.remoteFilters.length, 117, "Expected remoteFilters array to contain 117 items");
+assert.strictEqual(cfg.remote_filters.length, 117, "Expected remote_filters array to contain 117 items");
+
+// Test Celebrity Filter Config Entry Point
+assert.strictEqual(celebCfg.cameraFilterConfig.showFilterButton, true, "Expected showFilterButton in celebrity config");
+assert.strictEqual(celebCfg.cameraFilterConfig.show_filter_button, true, "Expected show_filter_button in celebrity config");
+assert.strictEqual(celebCfg.cameraFilterConfig.pickerFilters.length, 81, "Expected pickerFilters in celebrity config");
+assert.strictEqual(celebCfg.cameraFilterConfig.filterGroups.length, 9, "Expected 9 filter groups in celebrity config");
+
+// Test Camera Hardware Config Sanitization (preventing strict Decodable failure)
+const cameraObj = JSON.parse(parsed.entries.camera);
+assert.strictEqual(cameraObj.flash_button, true, "Expected flash_button to be true");
+assert.strictEqual(cameraObj.filter_button, undefined, "Extraneous filter_button must not exist in camera");
+assert.strictEqual(cameraObj.photobooth_button, undefined, "Extraneous photobooth_button must not exist in camera");
+assert.strictEqual(cameraObj.photobooth, undefined, "Extraneous photobooth must not exist in camera");
+
+// Test Payload Size Safety (must remain under 1MB Shadowrocket limit)
+const totalPayloadBytes = Buffer.byteLength(capturedDone.body, 'utf8');
+assert(totalPayloadBytes < 1048576, `Payload size (${totalPayloadBytes} bytes) must remain under 1MB safe processing limit`);
+
 console.log("Shadowrocket Firebase Filter, Widget Frames & Audio test passed!");
