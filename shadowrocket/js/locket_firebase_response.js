@@ -27,12 +27,12 @@ var FRAME_CATALOG = {
     },
     royal_gold: {
         uid: "midautumn_2026",
-        url: "https://cdn.jsdelivr.net/gh/Xwuan19/locket-gold-hub@main/shadowrocket/assets/frames/frame_royal_gold.png",
+        url: "https://cdn.jsdelivr.net/gh/thienduc-07/locketgoldvip@main/shadowrocket/assets/frames/frame_royal_gold.png",
         placement: "below"
     },
     kitty_shin: {
         uid: "midautumn_2026",
-        url: "https://cdn.jsdelivr.net/gh/Xwuan19/locket-gold-hub@main/shadowrocket/assets/frames/frame_kitty_shinchan.png",
+        url: "https://cdn.jsdelivr.net/gh/thienduc-07/locketgoldvip@main/shadowrocket/assets/frames/frame_kitty_shinchan.png",
         placement: "below"
     },
     halloween: {
@@ -42,12 +42,12 @@ var FRAME_CATALOG = {
     },
     lowg: {
         uid: "midautumn_2026",
-        url: "https://cdn.jsdelivr.net/gh/Xwuan19/locket-gold-hub@main/shadowrocket/assets/frames/frame_lowg_l2k.png",
+        url: "https://cdn.jsdelivr.net/gh/thienduc-07/locketgoldvip@main/shadowrocket/assets/frames/frame_lowg_l2k.png",
         placement: "below"
     },
     citopia: {
         uid: "midautumn_2026",
-        url: "https://cdn.jsdelivr.net/gh/Xwuan19/locket-gold-hub@main/shadowrocket/assets/frames/frame_citopia_y2k.png",
+        url: "https://cdn.jsdelivr.net/gh/thienduc-07/locketgoldvip@main/shadowrocket/assets/frames/frame_citopia_y2k.png",
         placement: "below"
     }
 };
@@ -183,7 +183,7 @@ obj.entries.client_cache_ttl_sec = "0";
                 {
                     title: "Locket VIP ✨",
                     body: "Quay video 30s • AI & Photobooth • Khung & Caption VIP",
-                    imageURL: "https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/assets/locket_gold.jpg"
+                    imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg"
                 }
             ],
             primary_button_title: "Bắt Đầu",

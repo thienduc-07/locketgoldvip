@@ -1,6 +1,6 @@
 # Locket VIP — All-In-One Module 🚀
 
-Được phát triển và tối ưu bởi **Xwuan** ([@Xwuan19](https://github.com/Xwuan19)).
+Được phát triển và tối ưu bởi **thienduc-07** ([@thienduc-07](https://github.com/thienduc-07)).
 
 Tập trung 1 module VIP duy nhất, đầy đủ các tính năng thực tế đang có:
 - **Locket Gold**: Mở khóa Gold vĩnh viễn (`locket_1600_1y`), xem ai đã xem ảnh (views), biểu tượng ứng dụng, huy hiệu Gold.
@@ -17,7 +17,7 @@ Tập trung 1 module VIP duy nhất, đầy đủ các tính năng thực tế �
 Dán trực tiếp URL module sau vào mục **Mô-đun (Modules)** trong Shadowrocket:
 
 ```text
-https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/modules/Locket_VIP.module
+https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/modules/Locket_VIP.module
 ```
 
 > [!IMPORTANT]
@@ -29,7 +29,7 @@ https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/modu
 
 ## Ứng Dụng Khác (Surge / Loon / Quantumult X / Stash)
 
-- **Surge**: `https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/modules/Locket_RemoteConfig.sgmodule`
-- **Loon**: `https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/modules/Locket_RemoteConfig.plugin`
-- **Quantumult X**: `https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/modules/Locket_RemoteConfig.snippet`
-- **Stash**: `https://raw.githubusercontent.com/Xwuan19/locket-gold-hub/main/shadowrocket/modules/Locket_RemoteConfig.stoverride`
+- **Surge**: `https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/modules/Locket_RemoteConfig.sgmodule`
+- **Loon**: `https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/modules/Locket_RemoteConfig.plugin`
+- **Quantumult X**: `https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/modules/Locket_RemoteConfig.snippet`
+- **Stash**: `https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/modules/Locket_RemoteConfig.stoverride`

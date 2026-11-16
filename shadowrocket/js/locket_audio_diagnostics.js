@@ -451,7 +451,7 @@
       lines.push('────────────────────────────────────────────────────────────────');
       lines.push('🎧 [LOCKET AUDIO/VIDEO DIAGNOSTIC] ' + report.stage);
       lines.push('▶ ENDPOINT : ' + report.method + ' ' + report.url);
-      lines.push('▶ STATUS   : ' + report.status);
+      lines.push('▶ STATUS   : ' + (report.status === 0 ? 'HTTP-REQUEST (Phase: Client Upload/Submit)' : report.status));
 
       for (var f = 0; f < report.findings.length; f++) {
         lines.push('   ' + report.findings[f]);

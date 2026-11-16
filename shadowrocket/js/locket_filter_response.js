@@ -65,6 +65,21 @@
                 status = 200;
             }
 
+            // Diagnostic logging cho feed video moments (Read-only)
+            if (/moments|fetchMoments|getMoments|getLatestMoment/i.test(reqUrl)) {
+                try {
+                    let items = Array.isArray(obj) ? obj : (obj.moments || (obj.data && obj.data.moments) || []);
+                    if (Array.isArray(items)) {
+                        for (let i = 0; i < Math.min(items.length, 5); i++) {
+                            let m = items[i];
+                            if (m && (m.video_url || m.videoUrl)) {
+                                console.log(`[LOCKET-FEED-AUDIO-DIAG] Moment ${m.id || m.uid || i}: video=${m.video_url || m.videoUrl} | has_audio=${m.has_audio} | is_muted=${m.is_muted} | sound_enabled=${m.sound_enabled}`);
+                            }
+                        }
+                    }
+                } catch (ignored) {}
+            }
+
             function transformNode(node) {
                 if (!node || typeof node !== "object") return;
                 if (Array.isArray(node)) {
