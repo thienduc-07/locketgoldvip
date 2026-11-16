@@ -134,9 +134,6 @@ obj.entries.minimum_fetch_interval_seconds = "0";
             filters: "enabled",
             ai_filters: "enabled",
             ai_filter: "enabled",
-            photobooth: "enabled",
-            photo_booth: "enabled",
-            celebrity_filters: "enabled",
             likeness: "enabled",
             ai_likeness: "enabled",
             create_likeness: "enabled",
@@ -155,11 +152,6 @@ obj.entries.minimum_fetch_interval_seconds = "0";
         camera_filter_sheet_enabled: "true",
         camera_filter_picker_enabled: "true",
         camera_ai_filters_enabled: "true",
-        photobooth_enabled: "true",
-        photobooth_camera_enabled: "true",
-        photobooth_mode_enabled: "true",
-        camera_photobooth_enabled: "true",
-        photobooth_stitcher_enabled: "true",
         likeness_enabled: "true",
         ai_likeness_enabled: "true",
         create_likeness_enabled: "true",
@@ -198,11 +190,11 @@ obj.entries.minimum_fetch_interval_seconds = "0";
                 {
                     title: "Locket VIP ✨",
                     body: "Quay video 60s • AI & Photobooth • Khung & Caption VIP",
-                    imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg?v=5.0"
+                    imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg?v=6.0"
                 }
             ],
             primary_button_title: "Bắt Đầu",
-            campaign: "locket_gold_welcome_v6",
+            campaign: "locket_gold_welcome_v7",
             start_at: "2020-01-01T00:00:00",
             end_at: "2099-12-31T23:59:59",
             use_local_time_zone: true
@@ -261,9 +253,6 @@ obj.entries.minimum_fetch_interval_seconds = "0";
             camera_microphone_enabled: true,
             audio_enabled: true,
             sound_enabled: true,
-            record_audio_enabled: true,
-            audio_session_deactivation_enabled: false,
-            upload_main: false,
             record_audio_enabled: true,
             audio_session_deactivation_enabled: false,
             upload_main: false
@@ -6107,13 +6096,11 @@ var customPhotoboothFilters = [
             id: f.id,
             name: f.name,
             category: cat,
-            category_id: "group_" + cat.toLowerCase().replace(/\s+/g, "_"),
             prompt: f.prompt || f.id,
             productUrl: null,
             colors: cols,
             captureButtonColors: (f.captureButtonColors && f.captureButtonColors.length) ? f.captureButtonColors : cols,
             tintColor: tColor,
-            tint_color: tColor,
             icon: {
                 url: (f.icon && f.icon.url) || img,
                 iconUrl: (f.icon && f.icon.iconUrl) || img,
@@ -6128,8 +6115,6 @@ var customPhotoboothFilters = [
             overlayImageURL: img,
             imageUrl: img,
             iconUrl: img,
-            previewImageUrl: img,
-            thumbnailUrl: img,
             referenceImages: f.referenceImages || [],
             requires_gold: false,
             requiresGold: false,
@@ -6143,9 +6128,6 @@ var customPhotoboothFilters = [
             allows_try_filter: true,
             tryButtonEnabled: true,
             try_button_enabled: true,
-            selectable: true,
-            isSelectable: true,
-            is_selectable: true,
             type: "normal",
             filterType: isOverlay ? "cutout" : "normal"
         };
@@ -6173,9 +6155,7 @@ var customPhotoboothFilters = [
         sheet_enabled: true,
         open_sheet_immediately: false,
         sheet_filters_selectable: true,
-        sheetFiltersSelectable: true,
-        photoboothEnabled: true,
-        photobooth_enabled: true
+        sheetFiltersSelectable: true
     };
 
     var locketCelebrityFilterConfig = {
@@ -6202,11 +6182,6 @@ var customPhotoboothFilters = [
         camera_filter_config: JSON.stringify(locketCameraFilterConfig),
         celebrity_filter_config: JSON.stringify(locketCelebrityFilterConfig),
         sheet_filters_selectable: "true",
-        photobooth_enabled: "true",
-        photobooth_camera_enabled: "true",
-        photobooth_mode_enabled: "true",
-        camera_photobooth_enabled: "true",
-        photobooth_stitcher_enabled: "true",
         camera_roll_preview_enabled: "true",
         camera_roll_video_enabled: "true",
         camera_roll_video_upload_enabled: "true",

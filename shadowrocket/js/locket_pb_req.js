@@ -328,7 +328,11 @@
         return FALLBACK_PHOTO_URL;
     }
 
-    function extractFilterId(bodyStr, bodyObj) {
+    function extractFilterId(bodyStr, bodyObj, url) {
+        if (url && typeof url === "string") {
+            var qMatch = url.match(/[?&](?:filterId|filter_id|filterUid|filter_uid|filter)=([^&#]+)/i);
+            if (qMatch) return decodeURIComponent(qMatch[1]);
+        }
         if (!bodyObj && bodyStr) {
             try { bodyObj = JSON.parse(bodyStr); } catch (e) {}
         }
@@ -447,7 +451,7 @@
             var reqBodyObj = null;
             try { reqBodyObj = JSON.parse(reqBodyStr); } catch (e) {}
 
-            var filterId = extractFilterId(reqBodyStr, reqBodyObj);
+            var filterId = extractFilterId(reqBodyStr, reqBodyObj, (typeof $request !== "undefined" && $request && $request.url) ? $request.url : "");
             var isOverlay = isOverlayFrameFilter(filterId);
             var isPhotobooth = isPhotoboothFilter(filterId);
 
@@ -505,20 +509,11 @@
             }
             // Case C: Server-side AI processing failure — only for non-photobooth AI filters
             else if (isHttpError || hasPayloadError || !validOutput) {
-                // Last attempt: use stored photo URL as graceful fallback
-                var fallbackUrl = storeRead("locket_last_photo_url") || storeRead("locket_last_image_url");
-                if (fallbackUrl && /^https?:\/\//i.test(fallbackUrl)) {
-                    // Graceful fallback: return original photo so app doesn't crash
-                    setProcessedOutputUrl(resObj, fallbackUrl);
-                    delete resObj.error;
-                    delete resObj.errors;
-                    if (resObj.result) { delete resObj.result.error; delete resObj.result.errors; }
-                    resObj.status = 200;
-                    resObj.success = true;
-                    if (!resObj.result) resObj.result = {};
-                    resObj.result.status = 200;
-                    resObj.result.success = true;
-                } else {
+                var isExplicitServerError = (respStatus >= 400 || hasPayloadError) && ((resObj.error && (resObj.error.message || typeof resObj.error === "string")) || (resObj.result && resObj.result.error));
+                var inputPhoto = extractPhotoUrl(reqBodyStr, reqBodyObj);
+                var fallbackUrl = inputPhoto || storeRead("locket_last_photo_url") || storeRead("locket_last_image_url");
+
+                if (isExplicitServerError) {
                     var errorMsg = (resObj.error && resObj.error.message) ||
                                    (resObj.result && resObj.result.error && resObj.result.error.message) ||
                                    (typeof resObj.error === "string" ? resObj.error : "") ||
@@ -536,6 +531,32 @@
                             status: respStatus >= 400 ? respStatus : 500,
                             success: false,
                             error: errorMsg
+                        }
+                    };
+                } else if (fallbackUrl) {
+                    // Graceful fallback for non-explicit or 3xx/redirect errors: return photo so app succeeds
+                    setProcessedOutputUrl(resObj, fallbackUrl);
+                    delete resObj.error;
+                    delete resObj.errors;
+                    if (resObj.result) { delete resObj.result.error; delete resObj.result.errors; }
+                    resObj.status = 200;
+                    resObj.success = true;
+                    if (!resObj.result) resObj.result = {};
+                    resObj.result.status = 200;
+                    resObj.result.success = true;
+                } else {
+                    resObj = {
+                        status: respStatus >= 400 ? respStatus : 500,
+                        success: false,
+                        error: {
+                            message: "Processing failed upstream",
+                            code: "PROCESSING_FAILED",
+                            filterId: filterId
+                        },
+                        result: {
+                            status: respStatus >= 400 ? respStatus : 500,
+                            success: false,
+                            error: "Processing failed upstream"
                         }
                     };
                 }
