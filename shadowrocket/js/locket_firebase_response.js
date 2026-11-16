@@ -6062,32 +6062,67 @@ var customPhotoboothFilters = [
     "stk_ocean_underwater",
     "stk_ufo_alien"
 ];
+    var groupCatMap = {
+        "group_photobooth": "Photobooth",
+        "group_looks": "Looks",
+        "group_hot_ai_3d": "AI 3D Hot",
+        "group_frames": "Frames",
+        "group_celebrate": "Celebrate",
+        "group_cute": "Cute",
+        "group_costume": "Costumes",
+        "group_holiday": "Holidays",
+        "group_goofy": "Goofy"
+    };
+
+    var filterCategoryLookup = {};
+    for (var gi = 0; gi < customFilterGroups.length; gi++) {
+        var grp = customFilterGroups[gi];
+        var grpCat = groupCatMap[grp.id] || "Looks";
+        var fids = grp.filterIds || grp.filter_ids || [];
+        for (var fi = 0; fi < fids.length; fi++) {
+            if (!filterCategoryLookup[fids[fi]]) {
+                filterCategoryLookup[fids[fi]] = grpCat;
+            }
+        }
+    }
+
     var cleanRemoteFilters = customPhotoboothFilters.map(function(f) {
+        var cat = f.category || filterCategoryLookup[f.id] || (f.id === "stk_dio_pm2" ? "Frames" : "Looks");
+        var isOverlay = (cat === "Photobooth" || cat === "Frames" || String(f.id).indexOf("pb_") === 0 || String(f.id).indexOf("frame_") === 0 || String(f.id).indexOf("khung_") === 0);
         var img = f.overlayImageUrl || f.imageUrl || f.iconUrl || "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
         var cols = (f.colors && f.colors.length) ? f.colors : ["#FFD6E0", "#FFE4EC"];
+        var primaryColor = (cols && cols[0]) || "#FFD6E0";
+        var tColor = f.tintColor || f.tint_color || primaryColor;
+
         return {
             uid: f.uid || f.id,
             id: f.id,
             name: f.name,
+            category: cat,
+            category_id: "group_" + cat.toLowerCase().replace(/\s+/g, "_"),
             prompt: f.prompt || f.id,
             productUrl: null,
             colors: cols,
             captureButtonColors: (f.captureButtonColors && f.captureButtonColors.length) ? f.captureButtonColors : cols,
+            tintColor: tColor,
+            tint_color: tColor,
             icon: {
                 url: (f.icon && f.icon.url) || img,
                 iconUrl: (f.icon && f.icon.iconUrl) || img,
                 remoteImage: (f.icon && f.icon.remoteImage) || img,
-                sfSymbol: (f.icon && f.icon.sfSymbol) || "camera.macro",
-                emoji: ""
+                sfSymbol: (f.icon && f.icon.sfSymbol) || (isOverlay ? "square.grid.2x2" : "sparkles"),
+                emoji: (f.icon && f.icon.emoji) || ""
             },
             textColor: f.textColor || "#FFFFFF",
-            style: f.style || "cutout",
-            overlay: f.overlay !== undefined ? f.overlay : true,
+            style: isOverlay ? "cutout" : "normal",
+            overlay: isOverlay,
             overlayImageUrl: img,
             overlayImageURL: img,
             imageUrl: img,
             iconUrl: img,
-            referenceImages: [],
+            previewImageUrl: img,
+            thumbnailUrl: img,
+            referenceImages: f.referenceImages || [],
             requires_gold: false,
             requiresGold: false,
             is_gold: false,
@@ -6104,7 +6139,7 @@ var customPhotoboothFilters = [
             isSelectable: true,
             is_selectable: true,
             type: "normal",
-            filterType: f.filterType || "normal"
+            filterType: isOverlay ? "cutout" : "normal"
         };
     });
 

@@ -34,73 +34,9 @@
 
     // 2. CHIỀU RESPONSE
     const reqUrl = (typeof $request !== "undefined" && $request.url) ? $request.url : "";
+    // Bàn giao toàn quyền xử lý generateFilteredImage cho locket_pb_req.js để tránh xung đột kép
     if (reqUrl.includes("generateFilteredImage")) {
-        let photoUrl = "";
-        if (typeof $request !== "undefined" && $request.body) {
-            try {
-                let reqB = JSON.parse($request.body);
-                let d = (reqB && reqB.data) || reqB;
-                photoUrl = d.input_url || d.inputUrl || d.download_url || d.downloadUrl || d.imageUrl || d.image_url || d.photoUrl || d.photo_url || d.url || "";
-            } catch (e) {}
-            if (!photoUrl && typeof $request.body === "string") {
-                let m = $request.body.replace(/\\u0026/g, "&").replace(/\\\//g, "/").match(/https?:\/\/[^\s"'<>\\]+/i);
-                if (m) photoUrl = m[0];
-            }
-        }
-        if (!photoUrl) {
-            try {
-                if (typeof $persistentStore !== "undefined") photoUrl = $persistentStore.read("locket_last_photo_url") || "";
-            } catch (e) {}
-        }
-        if (!photoUrl) photoUrl = "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
-
-        const dataObj = {
-            outputUrl: photoUrl,
-            output_url: photoUrl,
-            url: photoUrl,
-            imageUrl: photoUrl,
-            image_url: photoUrl,
-            downloadUrl: photoUrl,
-            download_url: photoUrl,
-            status: 200,
-            success: true
-        };
-        const mockPayload = {
-            status: 200,
-            success: true,
-            outputUrl: photoUrl,
-            output_url: photoUrl,
-            url: photoUrl,
-            imageUrl: photoUrl,
-            image_url: photoUrl,
-            result: {
-                outputUrl: photoUrl,
-                output_url: photoUrl,
-                url: photoUrl,
-                imageUrl: photoUrl,
-                image_url: photoUrl,
-                downloadUrl: photoUrl,
-                download_url: photoUrl,
-                status: 200,
-                success: true,
-                is_gold: true,
-                unlocked: true,
-                requires_gold: false,
-                is_locked: false,
-                data: dataObj
-            },
-            data: dataObj
-        };
-
-        return $done({
-            status: 200,
-            headers: {
-                "Content-Type": "application/json; charset=utf-8",
-                "content-type": "application/json; charset=utf-8",
-                "Access-Control-Allow-Origin": "*"
-            },
-            body: JSON.stringify(mockPayload)
-        });
+        return $done({});
     }
 
     let body = $response.body;

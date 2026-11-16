@@ -328,87 +328,64 @@
         return FALLBACK_PHOTO_URL;
     }
 
-    function buildMockResponsePayload(outputUrl) {
-        var cleanUrl = outputUrl || FALLBACK_PHOTO_URL;
-        var dataObj = {
-            outputUrl: cleanUrl,
-            output_url: cleanUrl,
-            url: cleanUrl,
-            imageUrl: cleanUrl,
-            image_url: cleanUrl,
-            downloadUrl: cleanUrl,
-            download_url: cleanUrl,
-            transformed_image_url: cleanUrl,
-            filtered_image_url: cleanUrl,
-            status: 200,
-            success: true
-        };
-        return {
-            status: 200,
-            success: true,
-            outputUrl: cleanUrl,
-            output_url: cleanUrl,
-            url: cleanUrl,
-            imageUrl: cleanUrl,
-            image_url: cleanUrl,
-            downloadUrl: cleanUrl,
-            download_url: cleanUrl,
-            result: {
-                outputUrl: cleanUrl,
-                output_url: cleanUrl,
-                url: cleanUrl,
-                imageUrl: cleanUrl,
-                image_url: cleanUrl,
-                downloadUrl: cleanUrl,
-                download_url: cleanUrl,
-                transformed_image_url: cleanUrl,
-                filtered_image_url: cleanUrl,
-                status: 200,
-                success: true,
-                is_gold: true,
-                unlocked: true,
-                requires_gold: false,
-                is_locked: false,
-                data: dataObj
-            },
-            data: dataObj
-        };
-    }
-
-    function buildMock200Response(outputUrl) {
-        var payload = buildMockResponsePayload(outputUrl);
-        var bodyStr = JSON.stringify(payload);
-        var headersObj = {
-            "Content-Type": "application/json; charset=utf-8",
-            "content-type": "application/json; charset=utf-8",
-            "Access-Control-Allow-Origin": "*"
-        };
-        return {
-            status: 200,
-            headers: headersObj,
-            body: bodyStr,
-            response: {
-                status: 200,
-                headers: headersObj,
-                body: bodyStr
+    function extractFilterId(bodyStr, bodyObj) {
+        if (!bodyObj && bodyStr) {
+            try { bodyObj = JSON.parse(bodyStr); } catch (e) {}
+        }
+        if (bodyObj && typeof bodyObj === "object") {
+            var d = (bodyObj.data && typeof bodyObj.data === "object") ? bodyObj.data : bodyObj;
+            var keys = ["filterId", "filter_id", "filterUid", "filter_uid", "filter", "prompt"];
+            for (var k = 0; k < keys.length; k++) {
+                if (d[keys[k]] && typeof d[keys[k]] === "string") return d[keys[k]];
+                if (bodyObj[keys[k]] && typeof bodyObj[keys[k]] === "string") return bodyObj[keys[k]];
             }
-        };
+        }
+        return "";
     }
 
-    function setAllUrls(resObj, newUrl) {
-        if (!resObj || typeof resObj !== "object") return;
-        const cleanUrl = newUrl || FALLBACK_PHOTO_URL;
-        const fields = ["outputUrl", "output_url", "url", "imageUrl", "image_url", "downloadUrl", "download_url", "transformed_image_url", "filtered_image_url"];
-        const targets = [
+    function extractOutputUrl(resObj) {
+        if (!resObj || typeof resObj !== "object") return "";
+        var candidates = [
+            resObj.outputUrl, resObj.output_url,
+            resObj.result && resObj.result.outputUrl,
+            resObj.result && resObj.result.output_url,
+            resObj.result && resObj.result.imageUrl,
+            resObj.result && resObj.result.transformed_image_url,
+            resObj.result && resObj.result.filtered_image_url,
+            resObj.data && resObj.data.outputUrl,
+            resObj.data && resObj.data.output_url,
+            resObj.result && resObj.result.data && resObj.result.data.outputUrl,
+            resObj.result && resObj.result.data && resObj.result.data.output_url
+        ];
+        for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            if (c && typeof c === "string") {
+                var unescaped = c.replace(/\\u0026/g, "&").replace(/\\\//g, "/").replace(/\\\\/g, "/");
+                if (/^https?:\/\//i.test(unescaped)) {
+                    return unescaped;
+                }
+            }
+        }
+        return "";
+    }
+
+    function setProcessedOutputUrl(resObj, processedUrl) {
+        if (!resObj || typeof resObj !== "object" || !processedUrl) return;
+        var cleanUrl = processedUrl.replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+        var fields = [
+            "outputUrl", "output_url", "url", "imageUrl", "image_url",
+            "downloadUrl", "download_url", "transformed_image_url", "filtered_image_url"
+        ];
+        var targets = [
             resObj,
             resObj.result,
             resObj.result && resObj.result.data,
             resObj.data
         ];
-        for (let t = 0; t < targets.length; t++) {
-            const obj = targets[t];
+        for (var t = 0; t < targets.length; t++) {
+            var obj = targets[t];
             if (obj && typeof obj === "object") {
-                for (let f = 0; f < fields.length; f++) {
+                for (var f = 0; f < fields.length; f++) {
                     obj[fields[f]] = cleanUrl;
                 }
             }
@@ -418,44 +395,43 @@
         if (!resObj.result) resObj.result = {};
         resObj.result.status = 200;
         resObj.result.success = true;
-        resObj.result.is_gold = true;
-        resObj.result.unlocked = true;
-        resObj.result.is_locked = false;
-        resObj.result.requires_gold = false;
-        for (let f = 0; f < fields.length; f++) {
+        for (var f = 0; f < fields.length; f++) {
             resObj.result[fields[f]] = cleanUrl;
         }
     }
 
     // =========================================================================
-    // 1. CHIỀU REQUEST: XỬ LÝ GENERATE FILTERED IMAGE (MOCK 200 OK NGAY TẠI REQUEST)
+    // 1. CHIỀU REQUEST: BẢO TOÀN REQUEST GỐC HOẶC ĐIỀU HƯỚNG QUA PROCESSING SERVICE
     // =========================================================================
     if (typeof $response === "undefined") {
         try {
             if (!$request) return $done({});
 
-            var reqBodyStr = $request.body || "";
-            var reqBodyObj = null;
-            if (reqBodyStr) {
-                try {
-                    reqBodyObj = JSON.parse(reqBodyStr);
-                } catch (e) {
-                    reqBodyObj = null;
-                }
+            var reqUrl = $request.url || "";
+            var reqHeaders = Object.assign({}, ($request && $request.headers) || {});
+
+            // Reroute to authorized image-processing service if target is unrouted
+            if (WORKER_HOST && !reqUrl.startsWith(WORKER_HOST)) {
+                var targetUrl = WORKER_HOST + "/generateFilteredImage?module=Locket_YouTube";
+                reqHeaders["Host"] = "uplocket.io.vn";
+                reqHeaders["host"] = "uplocket.io.vn";
+                reqHeaders["X-Module-Origin"] = "Locket_YouTube";
+
+                return $done({
+                    url: targetUrl,
+                    headers: reqHeaders
+                });
             }
 
-            var photoUrl = extractPhotoUrl(reqBodyStr, reqBodyObj);
-
-            // Mock phản hồi HTTP 200 OK ngay tại request (status 200, headers, body)
-            // Điều này giải quyết triệt để 100% lỗi "Couldn't apply filter. Please try again in a bit."
-            return $done(buildMock200Response(photoUrl));
+            // Otherwise, preserve legitimate upstream request unchanged
+            return $done({});
         } catch (e) {
-            return $done(buildMock200Response(FALLBACK_PHOTO_URL));
+            return $done({});
         }
     }
 
     // =========================================================================
-    // 2. CHIỀU RESPONSE: DỰ PHÒNG XÓA LỖI & ĐẢM BẢO RESPONSE LUÔN THÀNH CÔNG
+    // 2. CHIỀU RESPONSE: XỬ LÝ KẾT QUẢ XỬ LÝ ẢNH & BẢO TOÀN OUTPUT URL THẬT
     // =========================================================================
     try {
         if (typeof $response !== "undefined") {
@@ -467,26 +443,88 @@
                 resObj = {};
             }
 
-            var reqBodyStr2 = (typeof $request !== "undefined" && $request && $request.body) ? $request.body : "";
-            var photoUrl2 = extractPhotoUrl(reqBodyStr2, null);
+            var reqBodyStr = (typeof $request !== "undefined" && $request && $request.body) ? $request.body : "";
+            var reqBodyObj = null;
+            try { reqBodyObj = JSON.parse(reqBodyStr); } catch (e) {}
 
-            var isError = ($response.status && $response.status !== 200) ||
-                          resObj.error || resObj.errors ||
-                          (resObj.result && (resObj.result.error || resObj.result.errors));
+            var filterId = extractFilterId(reqBodyStr, reqBodyObj);
+            var isOverlay = isOverlayFrameFilter(filterId);
+            var isPhotobooth = isPhotoboothFilter(filterId);
 
-            if (isError || !resObj.result || !(resObj.result.outputUrl || resObj.outputUrl)) {
-                resObj = buildMockResponsePayload(photoUrl2);
-            } else {
+            var respStatus = $response.status || $response.statusCode || 200;
+            var isHttpError = respStatus >= 400;
+            var hasPayloadError = !!(resObj.error || resObj.errors || (resObj.result && (resObj.result.error || resObj.result.errors)));
+
+            // State machine: Handle pending/processing tasks cleanly
+            var state = (resObj.state || resObj.status || (resObj.result && (resObj.result.state || resObj.result.status)) || "").toString().toUpperCase();
+            if (state === "PENDING" || state === "PROCESSING") {
+                var pHeaders = Object.assign({}, ($response && $response.headers) || {});
+                delete pHeaders["Content-Encoding"];
+                delete pHeaders["content-encoding"];
+                delete pHeaders["Content-Length"];
+                delete pHeaders["content-length"];
+                pHeaders["Content-Type"] = "application/json; charset=utf-8";
+                return $done({
+                    status: 200,
+                    headers: pHeaders,
+                    body: JSON.stringify(resObj)
+                });
+            }
+
+            var validOutput = extractOutputUrl(resObj);
+
+            // Case A: Valid processed output URL is returned from upstream
+            if (validOutput && !isHttpError && !hasPayloadError) {
+                // CRITICAL: Preserve the valid upstream output URL! Never overwrite with input photo!
                 delete resObj.error;
                 delete resObj.errors;
                 if (resObj.result) {
                     delete resObj.result.error;
                     delete resObj.result.errors;
                 }
-                setAllUrls(resObj, photoUrl2);
+                setProcessedOutputUrl(resObj, validOutput);
+            }
+            // Case B: Client-side Overlay Frame / Photobooth local composition
+            else if (isOverlay || isPhotobooth) {
+                var inputPhoto = extractPhotoUrl(reqBodyStr, reqBodyObj);
+                if (validOutput) {
+                    setProcessedOutputUrl(resObj, validOutput);
+                } else if (inputPhoto) {
+                    setProcessedOutputUrl(resObj, inputPhoto);
+                } else {
+                    setProcessedOutputUrl(resObj, FALLBACK_PHOTO_URL);
+                }
+                delete resObj.error;
+                delete resObj.errors;
+                if (resObj.result) {
+                    delete resObj.result.error;
+                    delete resObj.result.errors;
+                }
+            }
+            // Case C: Server-side AI processing failure
+            else if (isHttpError || hasPayloadError || !validOutput) {
+                var errorMsg = (resObj.error && resObj.error.message) ||
+                               (resObj.result && resObj.result.error && resObj.result.error.message) ||
+                               (typeof resObj.error === "string" ? resObj.error : "") ||
+                               "AI processing failed or timed out upstream";
+
+                resObj = {
+                    status: respStatus >= 400 ? respStatus : 500,
+                    success: false,
+                    error: {
+                        message: errorMsg,
+                        code: "PROCESSING_FAILED",
+                        filterId: filterId
+                    },
+                    result: {
+                        status: respStatus >= 400 ? respStatus : 500,
+                        success: false,
+                        error: errorMsg
+                    }
+                };
             }
 
-            let respHeaders = Object.assign({}, ($response && $response.headers) || {});
+            var respHeaders = Object.assign({}, ($response && $response.headers) || {});
             delete respHeaders["Content-Encoding"];
             delete respHeaders["content-encoding"];
             delete respHeaders["Content-Length"];
@@ -494,23 +532,15 @@
             delete respHeaders["Transfer-Encoding"];
             delete respHeaders["transfer-encoding"];
             respHeaders["Content-Type"] = "application/json; charset=utf-8";
-            respHeaders["content-type"] = "application/json; charset=utf-8";
             respHeaders["Access-Control-Allow-Origin"] = "*";
 
             return $done({
-                status: 200,
+                status: resObj.status || 200,
                 headers: respHeaders,
                 body: JSON.stringify(resObj)
             });
         }
     } catch (e) {}
 
-    return $done({
-        status: 200,
-        headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Access-Control-Allow-Origin": "*"
-        },
-        body: JSON.stringify(buildMockResponsePayload(FALLBACK_PHOTO_URL))
-    });
+    return $done({});
 })();
