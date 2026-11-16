@@ -485,43 +485,60 @@
                 setProcessedOutputUrl(resObj, validOutput);
             }
             // Case B: Client-side Overlay Frame / Photobooth local composition
+            // ALWAYS return success for photobooth/overlay — never show "Couldn't apply filter"
             else if (isOverlay || isPhotobooth) {
                 var inputPhoto = extractPhotoUrl(reqBodyStr, reqBodyObj);
-                if (validOutput) {
-                    setProcessedOutputUrl(resObj, validOutput);
-                } else if (inputPhoto) {
-                    setProcessedOutputUrl(resObj, inputPhoto);
-                } else {
-                    setProcessedOutputUrl(resObj, FALLBACK_PHOTO_URL);
-                }
+                var compositeUrl = validOutput || inputPhoto || FALLBACK_PHOTO_URL;
+                setProcessedOutputUrl(resObj, compositeUrl);
                 delete resObj.error;
                 delete resObj.errors;
                 if (resObj.result) {
                     delete resObj.result.error;
                     delete resObj.result.errors;
                 }
+                // Force success state
+                resObj.status = 200;
+                resObj.success = true;
+                if (!resObj.result) resObj.result = {};
+                resObj.result.status = 200;
+                resObj.result.success = true;
             }
-            // Case C: Server-side AI processing failure
+            // Case C: Server-side AI processing failure — only for non-photobooth AI filters
             else if (isHttpError || hasPayloadError || !validOutput) {
-                var errorMsg = (resObj.error && resObj.error.message) ||
-                               (resObj.result && resObj.result.error && resObj.result.error.message) ||
-                               (typeof resObj.error === "string" ? resObj.error : "") ||
-                               "AI processing failed or timed out upstream";
+                // Last attempt: use stored photo URL as graceful fallback
+                var fallbackUrl = storeRead("locket_last_photo_url") || storeRead("locket_last_image_url");
+                if (fallbackUrl && /^https?:\/\//i.test(fallbackUrl)) {
+                    // Graceful fallback: return original photo so app doesn't crash
+                    setProcessedOutputUrl(resObj, fallbackUrl);
+                    delete resObj.error;
+                    delete resObj.errors;
+                    if (resObj.result) { delete resObj.result.error; delete resObj.result.errors; }
+                    resObj.status = 200;
+                    resObj.success = true;
+                    if (!resObj.result) resObj.result = {};
+                    resObj.result.status = 200;
+                    resObj.result.success = true;
+                } else {
+                    var errorMsg = (resObj.error && resObj.error.message) ||
+                                   (resObj.result && resObj.result.error && resObj.result.error.message) ||
+                                   (typeof resObj.error === "string" ? resObj.error : "") ||
+                                   "AI processing failed or timed out upstream";
 
-                resObj = {
-                    status: respStatus >= 400 ? respStatus : 500,
-                    success: false,
-                    error: {
-                        message: errorMsg,
-                        code: "PROCESSING_FAILED",
-                        filterId: filterId
-                    },
-                    result: {
+                    resObj = {
                         status: respStatus >= 400 ? respStatus : 500,
                         success: false,
-                        error: errorMsg
-                    }
-                };
+                        error: {
+                            message: errorMsg,
+                            code: "PROCESSING_FAILED",
+                            filterId: filterId
+                        },
+                        result: {
+                            status: respStatus >= 400 ? respStatus : 500,
+                            success: false,
+                            error: errorMsg
+                        }
+                    };
+                }
             }
 
             var respHeaders = Object.assign({}, ($response && $response.headers) || {});
