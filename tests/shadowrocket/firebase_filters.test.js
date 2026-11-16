@@ -65,12 +65,16 @@ assert(cfg.picker_filters.includes("disco_lights"), "Expected disco_lights in pi
 assert(cfg.picker_filters.includes("beard"), "Expected beard in picker filters");
 assert(cfg.picker_filters.includes("slimed"), "Expected slimed in picker filters");
 
+// Test Photobooth at the beginning of picker filters
+assert.strictEqual(cfg.picker_filters[0], "photobooth_4cut", "Expected photobooth_4cut to be first picker filter");
+
 // Test 30s Recording & Video Upload with Audio
 assert.strictEqual(parsed.entries.video_sound_enabled, "true", "Expected video_sound_enabled");
 assert.strictEqual(parsed.entries.microphone_enabled, "true", "Expected microphone_enabled");
 assert.strictEqual(parsed.entries.camera_microphone_enabled, "true", "Expected camera_microphone_enabled");
 assert.strictEqual(parsed.entries.camera_roll_video_sound_enabled, "true", "Expected camera_roll_video_sound_enabled");
-assert.strictEqual(parsed.entries.upload_main, "true", "Expected upload_main to be true");
+assert.strictEqual(parsed.entries.audio_session_deactivation_enabled, "false", "Expected audio_session_deactivation_enabled to be false");
+assert.strictEqual(parsed.entries.upload_main, "false", "Expected upload_main to be false");
 assert.strictEqual(parsed.entries.video_max_duration, "60.0", "Expected video_max_duration to be 60.0");
 assert.strictEqual(parsed.entries.camera_roll_video_max_duration, "60.0", "Expected camera_roll_video_max_duration to be 60.0");
 

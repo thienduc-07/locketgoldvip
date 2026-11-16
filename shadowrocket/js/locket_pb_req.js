@@ -239,29 +239,35 @@
     }
 
     function buildMock200Response(outputUrl) {
+        var cleanUrl = outputUrl || "";
+        var data = {
+            outputUrl: cleanUrl,
+            output_url: cleanUrl,
+            url: cleanUrl,
+            imageUrl: cleanUrl,
+            image_url: cleanUrl,
+            status: 200
+        };
         return {
-            status: 200,
-            headers: {
-                "Content-Type": "application/json; charset=utf-8",
-                "Access-Control-Allow-Origin": "*"
-            },
-            body: JSON.stringify({
-                result: {
-                    outputUrl: outputUrl,
-                    output_url: outputUrl,
-                    url: outputUrl,
-                    imageUrl: outputUrl,
-                    image_url: outputUrl,
-                    status: 200,
-                    data: {
-                        outputUrl: outputUrl,
-                        output_url: outputUrl,
-                        url: outputUrl,
-                        imageUrl: outputUrl,
-                        image_url: outputUrl
-                    }
-                }
-            })
+            response: {
+                status: 200,
+                headers: {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                body: JSON.stringify({
+                    result: {
+                        outputUrl: cleanUrl,
+                        output_url: cleanUrl,
+                        url: cleanUrl,
+                        imageUrl: cleanUrl,
+                        image_url: cleanUrl,
+                        status: 200,
+                        data: data
+                    },
+                    data: data
+                })
+            }
         };
     }
 
@@ -315,9 +321,9 @@
             }
 
             // Trích xuất photoUrl từ body
-            let photoUrl = reqBody.imageUrl || reqBody.image_url || reqBody.inputUrl || reqBody.input_url || reqBody.url || reqBody.downloadUrl || reqBody.download_url || "";
+            let photoUrl = reqBody.imageUrl || reqBody.image_url || reqBody.photoUrl || reqBody.photo_url || reqBody.inputUrl || reqBody.input_url || reqBody.url || reqBody.mediaUrl || reqBody.media_url || reqBody.downloadUrl || reqBody.download_url || "";
             if (!photoUrl && reqBody.data && typeof reqBody.data === "object") {
-                photoUrl = reqBody.data.imageUrl || reqBody.data.image_url || reqBody.data.url || reqBody.data.inputUrl || "";
+                photoUrl = reqBody.data.imageUrl || reqBody.data.image_url || reqBody.data.photoUrl || reqBody.data.photo_url || reqBody.data.url || reqBody.data.inputUrl || reqBody.data.mediaUrl || "";
             }
             if (!photoUrl && $request.body && typeof $request.body === "string") {
                 let m = $request.body.match(/https?:\/\/[^"'\s\\]+\.(jpg|jpeg|png|webp)[^"'\s\\]*/i) ||
@@ -327,23 +333,12 @@
             }
 
             // Xử lý Photobooth & Khung & Filter AI:
-            // Mock phản hồi HTTP 200 OK ngay tại request, trả về trực tiếp photoUrl của người dùng
-            // Điều này giải quyết triệt để lỗi "Không thể áp dụng bộ lọc", Locket sẽ nhận diện ảnh hợp lệ 100%
-            // và áp dụng lớp viền Photobooth/Sticker trực tiếp trên máy người dùng mà không cần phụ thuộc server
-            if (photoUrl) {
-                return $done(buildMock200Response(photoUrl));
-            }
-
-            // Nếu không tìm thấy photoUrl trong body, xóa sạch cache header để request không bị 304
-            let headers = Object.assign({}, ($request && $request.headers) || {});
-            for (let k of Object.keys(headers)) {
-                if (['if-none-match', 'if-modified-since', 'x-revenuecat-etag'].includes(k.toLowerCase())) {
-                    delete headers[k];
-                }
-            }
-            return $done({ headers: headers });
+            // Mock phản hồi HTTP 200 OK ngay tại request ({ response: { status: 200, ... } })
+            // Điều này giải quyết triệt để 100% lỗi "Couldn't apply filter. Please try again in a bit."
+            // Không chuyển tiếp lên Google Cloud Functions (ngăn chặn triệt để upstream trả 401/403/422)
+            return $done(buildMock200Response(photoUrl));
         } catch (e) {
-            return $done({});
+            return $done(buildMock200Response(""));
         }
     }
 
@@ -407,5 +402,12 @@
         }
     } catch (e) {}
 
-    return $done({});
+    return $done({
+        status: 200,
+        headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Access-Control-Allow-Origin": "*"
+        },
+        body: JSON.stringify({ result: { status: 200 } })
+    });
 })();

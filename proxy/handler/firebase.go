@@ -77,7 +77,7 @@ var firebaseOverrides = map[string]string{
 	"video_sound_enabled":                "true",
 	"microphone_enabled":                 "true",
 	"camera_microphone_enabled":          "true",
-	"audio_session_deactivation_enabled": "true",
+	"audio_session_deactivation_enabled": "false",
 	"zoom_enabled":                       "true",
 	"sheet_filters_selectable":           "true",
 	"camera_roll_preview_video":          "true",
