@@ -50,6 +50,9 @@ assert(widgetFrameEvent.url, "Expected widget frame url to be present");
 // Test Photobooth & AI Filter Configuration (RealTrueHieu & Hakaiz V2 baseline)
 assert(parsed.entries.camera_filter_config, "Expected camera_filter_config");
 assert(parsed.entries.celebrity_filter_config, "Expected celebrity_filter_config");
+const celebCfg = JSON.parse(parsed.entries.celebrity_filter_config);
+assert(celebCfg.cameraFilterConfig.pickerFilters.length > 0, "Expected celebrityFilterConfig to contain pickerFilters");
+assert(celebCfg.cameraFilterConfig.filterGroups.length > 0, "Expected celebrityFilterConfig to contain filterGroups");
 const cfg = JSON.parse(parsed.entries.camera_filter_config);
 assert(cfg.sheet_filters.some(f => f.id === "group_hot_ai_3d" || (f.title && f.title.vi && f.title.vi.includes("AI 3D"))), "Expected AI 3D filter group");
 assert(cfg.sheet_filters.some(f => f.id === "group_photobooth" || (f.title && f.title.vi && f.title.vi.includes("Photobooth"))), "Expected Photobooth filter group");

@@ -257,6 +257,11 @@
             if (!node) return "";
             if (typeof node === "string") {
                 if (/^https?:\/\//i.test(node)) return node;
+                if (/^gs:\/\//i.test(node)) {
+                    var parts = node.replace(/^gs:\/\//i, "").split("/");
+                    var b = parts.shift();
+                    return "https://firebasestorage.googleapis.com/v0/b/" + b + "/o/" + encodeURIComponent(parts.join("/")) + "?alt=media";
+                }
                 return "";
             }
             if (Array.isArray(node)) {
@@ -269,8 +274,20 @@
             if (typeof node === "object") {
                 for (var k = 0; k < priorityKeys.length; k++) {
                     var key = priorityKeys[k];
-                    if (node[key] && typeof node[key] === "string" && /^https?:\/\//i.test(node[key])) {
-                        return node[key];
+                    if (node[key] && typeof node[key] === "string") {
+                        if (/^https?:\/\//i.test(node[key])) return node[key];
+                        if (/^gs:\/\//i.test(node[key])) {
+                            var gsParts = node[key].replace(/^gs:\/\//i, "").split("/");
+                            var bucket = gsParts.shift();
+                            return "https://firebasestorage.googleapis.com/v0/b/" + bucket + "/o/" + encodeURIComponent(gsParts.join("/")) + "?alt=media";
+                        }
+                    }
+                }
+                var pathKeys = ["image_path", "imagePath", "storage_path", "storagePath", "filePath", "media_path", "mediaPath"];
+                for (var p = 0; p < pathKeys.length; p++) {
+                    var pk = pathKeys[p];
+                    if (node[pk] && typeof node[pk] === "string" && node[pk].length > 3 && !node[pk].startsWith("http")) {
+                        return "https://firebasestorage.googleapis.com/v0/b/locket-4252a.appspot.com/o/" + encodeURIComponent(node[pk]) + "?alt=media";
                     }
                 }
                 var keys = Object.keys(node);

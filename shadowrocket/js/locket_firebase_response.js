@@ -6135,22 +6135,15 @@ var customPhotoboothFilters = [
 
     var locketCelebrityFilterConfig = {
         celebrityUid: "locket_admin_custom",
-        cameraFilterConfig: {
-            showFilterButton: true,
-            allowsCustomFilters: true,
-            sheetEnabled: true,
-            openSheetImmediately: false,
-            show_filter_button: true,
-            allows_custom_filters: true,
-            sheet_enabled: true,
-            open_sheet_immediately: false
-        }
+        cameraFilterConfig: locketCameraFilterConfig
     };
-
 
     Object.assign(obj.entries, {
         camera_filter_config: JSON.stringify(locketCameraFilterConfig),
         celebrity_filter_config: JSON.stringify(locketCelebrityFilterConfig),
+        camera_filters_config: JSON.stringify(locketCameraFilterConfig),
+        filters_config: JSON.stringify(locketCameraFilterConfig),
+        ai_filters_config: JSON.stringify(locketCameraFilterConfig),
         sheet_filters_selectable: "true",
         camera_roll_preview_enabled: "true",
         camera_roll_video_enabled: "true",
