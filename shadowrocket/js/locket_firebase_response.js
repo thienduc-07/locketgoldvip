@@ -164,7 +164,11 @@ obj.entries.client_cache_ttl_sec = "0";
             camera_theme: true,
             locket_views: true,
             remove_ads: true,
-            custom_widget_frames: true
+            custom_widget_frames: true,
+            camera_filter: true,
+            camera_filters: true,
+            filters: true,
+            ai_filters: true
         }),
         paywall_presentation_config: JSON.stringify({
             uid: "paywall_testflight",
@@ -6048,31 +6052,47 @@ var customPhotoboothFilters = [
     "stk_ocean_underwater",
     "stk_ufo_alien"
 ];
+    var cleanRemoteFilters = customPhotoboothFilters.map(function(f) {
+        return {
+            id: f.id,
+            uid: f.uid || f.id,
+            name: f.name,
+            overlay: f.overlay !== undefined ? f.overlay : true,
+            imageUrl: f.imageUrl,
+            iconUrl: f.iconUrl,
+            overlayImageUrl: f.overlayImageUrl || f.imageUrl,
+            overlayImageURL: f.overlayImageURL || f.imageUrl,
+            icon: f.icon ? { url: f.icon.url || f.imageUrl, sfSymbol: f.icon.sfSymbol || "camera.macro" } : undefined,
+            type: "normal",
+            filterType: f.filterType || "cutout"
+        };
+    });
+
     var locketCameraFilterConfig = {
         showFilterButton: true,
         allowsCustomFilters: true,
         referenceImageAttachmentEnabled: true,
         sheetEnabled: true,
-        openSheetImmediately: false,
+        openSheetImmediately: true,
         pickerFilters: customPickerFilters,
         picker_filters: customPickerFilters,
         filterGroups: customFilterGroups,
         filter_groups: customFilterGroups,
         sheetFilters: customFilterGroups,
         sheet_filters: customFilterGroups,
-        remoteFilters: customPhotoboothFilters,
-        remote_filters: customPhotoboothFilters,
-        filters: customPhotoboothFilters,
+        remoteFilters: cleanRemoteFilters,
+        remote_filters: cleanRemoteFilters,
+        
         show_filter_button: true,
         allows_custom_filters: true,
         reference_image_attachment_enabled: true,
         sheet_enabled: true,
-        open_sheet_immediately: false
+        open_sheet_immediately: true
     };
 
     var locketCelebrityFilterConfig = {
         celebrityUid: "locket_admin_custom",
-        cameraFilterConfig: locketCameraFilterConfig
+        cameraFilterConfig: { showFilterButton: true, allowsCustomFilters: true, sheetEnabled: true, openSheetImmediately: true }
     };
 
 
