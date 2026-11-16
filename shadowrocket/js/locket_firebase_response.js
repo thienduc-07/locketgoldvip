@@ -5563,11 +5563,11 @@ var customPhotoboothFilters = [
             "vi": "Photobooth 📸"
         },
         "filterIds": [
+            "photobooth_4cut",
+            "photobooth_cute",
             "frame_berry_days",
             "frame_happy_snap",
             "frame_sky_diary",
-            "photobooth_4cut",
-            "photobooth_cute",
             "pb_holo_4cut",
             "pb_scrapbook_ripped_4cut",
             "pb_ripped_paper_4cut",
@@ -5575,11 +5575,11 @@ var customPhotoboothFilters = [
             "frame_classic_pb"
         ],
         "filter_ids": [
+            "photobooth_4cut",
+            "photobooth_cute",
             "frame_berry_days",
             "frame_happy_snap",
             "frame_sky_diary",
-            "photobooth_4cut",
-            "photobooth_cute",
             "pb_holo_4cut",
             "pb_scrapbook_ripped_4cut",
             "pb_ripped_paper_4cut",
@@ -5593,7 +5593,14 @@ var customPhotoboothFilters = [
         "unlocked": true,
         "is_unlocked": true,
         "isUnlocked": true,
-        "free": true
+        "free": true,
+        "selectable": true,
+        "isSelectable": true,
+        "is_selectable": true,
+        "allowsTryFilter": true,
+        "allows_try_filter": true,
+        "tryButtonEnabled": true,
+        "try_button_enabled": true
     },
     {
         "id": "group_looks",
@@ -6053,18 +6060,48 @@ var customPhotoboothFilters = [
     "stk_ufo_alien"
 ];
     var cleanRemoteFilters = customPhotoboothFilters.map(function(f) {
+        var img = f.overlayImageUrl || f.imageUrl || f.iconUrl || "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
+        var cols = (f.colors && f.colors.length) ? f.colors : ["#FFD6E0", "#FFE4EC"];
         return {
-            id: f.id,
             uid: f.uid || f.id,
+            id: f.id,
             name: f.name,
+            prompt: f.prompt || f.id,
+            productUrl: null,
+            colors: cols,
+            captureButtonColors: (f.captureButtonColors && f.captureButtonColors.length) ? f.captureButtonColors : cols,
+            icon: {
+                url: (f.icon && f.icon.url) || img,
+                iconUrl: (f.icon && f.icon.iconUrl) || img,
+                remoteImage: (f.icon && f.icon.remoteImage) || img,
+                sfSymbol: (f.icon && f.icon.sfSymbol) || "camera.macro",
+                emoji: ""
+            },
+            textColor: f.textColor || "#FFFFFF",
+            style: f.style || "cutout",
             overlay: f.overlay !== undefined ? f.overlay : true,
-            imageUrl: f.imageUrl,
-            iconUrl: f.iconUrl,
-            overlayImageUrl: f.overlayImageUrl || f.imageUrl,
-            overlayImageURL: f.overlayImageURL || f.imageUrl,
-            icon: f.icon ? { url: f.icon.url || f.imageUrl, sfSymbol: f.icon.sfSymbol || "camera.macro" } : undefined,
+            overlayImageUrl: img,
+            overlayImageURL: img,
+            imageUrl: img,
+            iconUrl: img,
+            referenceImages: [],
+            requires_gold: false,
+            requiresGold: false,
+            is_gold: false,
+            isGold: false,
+            unlocked: true,
+            is_unlocked: true,
+            isUnlocked: true,
+            free: true,
+            allowsTryFilter: true,
+            allows_try_filter: true,
+            tryButtonEnabled: true,
+            try_button_enabled: true,
+            selectable: true,
+            isSelectable: true,
+            is_selectable: true,
             type: "normal",
-            filterType: f.filterType || "cutout"
+            filterType: f.filterType || "normal"
         };
     });
 
@@ -6073,7 +6110,7 @@ var customPhotoboothFilters = [
         allowsCustomFilters: true,
         referenceImageAttachmentEnabled: true,
         sheetEnabled: true,
-        openSheetImmediately: true,
+        openSheetImmediately: false,
         pickerFilters: customPickerFilters,
         picker_filters: customPickerFilters,
         filterGroups: customFilterGroups,
@@ -6082,17 +6119,29 @@ var customPhotoboothFilters = [
         sheet_filters: customFilterGroups,
         remoteFilters: cleanRemoteFilters,
         remote_filters: cleanRemoteFilters,
+        filters: cleanRemoteFilters,
         
         show_filter_button: true,
         allows_custom_filters: true,
         reference_image_attachment_enabled: true,
         sheet_enabled: true,
-        open_sheet_immediately: true
+        open_sheet_immediately: false,
+        sheet_filters_selectable: true,
+        sheetFiltersSelectable: true
     };
 
     var locketCelebrityFilterConfig = {
         celebrityUid: "locket_admin_custom",
-        cameraFilterConfig: { showFilterButton: true, allowsCustomFilters: true, sheetEnabled: true, openSheetImmediately: true }
+        cameraFilterConfig: {
+            showFilterButton: true,
+            allowsCustomFilters: true,
+            sheetEnabled: true,
+            openSheetImmediately: false,
+            show_filter_button: true,
+            allows_custom_filters: true,
+            sheet_enabled: true,
+            open_sheet_immediately: false
+        }
     };
 
 
