@@ -189,12 +189,12 @@ obj.entries.minimum_fetch_interval_seconds = "0";
             feature_set: [
                 {
                     title: "Locket VIP ✨",
-                    body: "Quay video 30s • AI & Photobooth • Khung & Caption VIP",
-                    imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg"
+                    body: "Quay video 60s • AI & Photobooth • Khung & Caption VIP",
+                    imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg?v=3.0"
                 }
             ],
             primary_button_title: "Bắt Đầu",
-            campaign: "locket_gold_welcome_v3",
+            campaign: "locket_gold_welcome_v4",
             start_at: "2020-01-01T00:00:00",
             end_at: "2099-12-31T23:59:59",
             use_local_time_zone: true
