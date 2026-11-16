@@ -92,12 +92,6 @@
             data: dataObj
         };
 
-        try {
-            if (typeof $notification !== "undefined" && $notification.post) {
-                $notification.post("Locket VIP", "Áp dụng Filter 200 OK 📸", "Hoàn tất xử lý ảnh!");
-            }
-        } catch (notifErr) {}
-
         return $done({
             status: 200,
             headers: {
