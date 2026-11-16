@@ -6130,7 +6130,9 @@ var customPhotoboothFilters = [
         sheet_enabled: true,
         open_sheet_immediately: false,
         sheet_filters_selectable: true,
-        sheetFiltersSelectable: true
+        sheetFiltersSelectable: true,
+        photoboothEnabled: true,
+        photobooth_enabled: true
     };
 
     var locketCelebrityFilterConfig = {
@@ -6145,6 +6147,11 @@ var customPhotoboothFilters = [
         filters_config: JSON.stringify(locketCameraFilterConfig),
         ai_filters_config: JSON.stringify(locketCameraFilterConfig),
         sheet_filters_selectable: "true",
+        photobooth_enabled: "true",
+        photobooth_camera_enabled: "true",
+        photobooth_mode_enabled: "true",
+        camera_photobooth_enabled: "true",
+        photobooth_stitcher_enabled: "true",
         camera_roll_preview_enabled: "true",
         camera_roll_video_enabled: "true",
         camera_roll_video_upload_enabled: "true",

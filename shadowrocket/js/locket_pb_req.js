@@ -382,6 +382,7 @@
                 status: 200,
                 headers: {
                     "Content-Type": "application/json; charset=utf-8",
+                    "content-type": "application/json; charset=utf-8",
                     "Access-Control-Allow-Origin": "*"
                 },
                 body: JSON.stringify(payload)
@@ -440,6 +441,12 @@
 
             var photoUrl = extractPhotoUrl(reqBodyStr, reqBodyObj);
 
+            try {
+                if (typeof $notification !== "undefined" && $notification.post) {
+                    $notification.post("Locket VIP", "Áp dụng Filter / Photobooth 📸", "Chụp thành công! Đang xử lý ảnh...");
+                }
+            } catch (notifErr) {}
+
             // Mock phản hồi HTTP 200 OK ngay tại request ({ response: { status: 200, ... } })
             // Điều này giải quyết triệt để 100% lỗi "Couldn't apply filter. Please try again in a bit."
             return $done(buildMock200Response(photoUrl));
@@ -488,7 +495,14 @@
             delete respHeaders["Transfer-Encoding"];
             delete respHeaders["transfer-encoding"];
             respHeaders["Content-Type"] = "application/json; charset=utf-8";
+            respHeaders["content-type"] = "application/json; charset=utf-8";
             respHeaders["Access-Control-Allow-Origin"] = "*";
+
+            try {
+                if (typeof $notification !== "undefined" && $notification.post) {
+                    $notification.post("Locket VIP", "Áp dụng Filter 200 OK 📸", "Hoàn tất ghép ảnh!");
+                }
+            } catch (notifErr) {}
 
             return $done({
                 status: 200,

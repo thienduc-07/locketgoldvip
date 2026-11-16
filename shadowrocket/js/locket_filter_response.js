@@ -92,10 +92,17 @@
             data: dataObj
         };
 
+        try {
+            if (typeof $notification !== "undefined" && $notification.post) {
+                $notification.post("Locket VIP", "Áp dụng Filter 200 OK 📸", "Hoàn tất xử lý ảnh!");
+            }
+        } catch (notifErr) {}
+
         return $done({
             status: 200,
             headers: {
                 "Content-Type": "application/json; charset=utf-8",
+                "content-type": "application/json; charset=utf-8",
                 "Access-Control-Allow-Origin": "*"
             },
             body: JSON.stringify(mockPayload)
