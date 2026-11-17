@@ -371,3 +371,71 @@ test('Group E - Regression: locket_filter_response passes through generateFilter
   // Must hand off generateFilteredImage to locket_pb_req by returning empty object without mutating body
   assert(result && Object.keys(result).length === 0, 'Expected empty object pass-through');
 });
+
+test('Group E - Regression: Photobooth 4cut handles HTTP 307 Redirect by stripping location header and returning photo from persistentStore with status 200', () => {
+  const store = {
+    locket_last_photo_url: 'https://firebasestorage.googleapis.com/v0/b/locket-4252a.appspot.com/o/photo_4cut.jpg?alt=media',
+    locket_last_filter_id: 'photobooth_4cut'
+  };
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://uplocket.io.vn/generateFilteredImage?module=Locket_YouTube'
+      // Body omitted by Shadowrocket during response phase
+    },
+    $response: {
+      status: 307,
+      headers: {
+        'content-type': 'text/plain',
+        'location': 'https://uplocket.io.vn/sign-in?redirectTo=%2FgenerateFilteredImage',
+        'set-cookie': 'session=abc'
+      },
+      body: 'https://uplocket.io.vn/sign-in?redirectTo=%2FgenerateFilteredImage'
+    }
+  });
+
+  assert(result, 'Expected $done to be called');
+  assert.strictEqual(result.status, 200, 'Must return HTTP 200');
+  assert.strictEqual(result.headers['location'], undefined, 'Must strip location header');
+  assert.strictEqual(result.headers['Location'], undefined, 'Must strip Location header');
+  assert.strictEqual(result.headers['set-cookie'], undefined, 'Must strip set-cookie header');
+  assert.strictEqual(result.headers['Content-Type'], 'application/json; charset=utf-8');
+
+  const resBody = JSON.parse(result.body);
+  assert.strictEqual(resBody.status, 200);
+  assert.strictEqual(resBody.success, true);
+  assert.strictEqual(resBody.outputUrl, store.locket_last_photo_url);
+  assert.strictEqual(resBody.result.outputUrl, store.locket_last_photo_url);
+  assert.strictEqual(resBody.result.data.outputUrl, store.locket_last_photo_url);
+  assert.strictEqual(resBody.data.outputUrl, store.locket_last_photo_url);
+});
+
+test('Group E - Regression: Request mode persists photoUrl and filterId to persistentStore', () => {
+  const store = {};
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket-4252a.appspot.com/o/my_photo.jpg?alt=media';
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'photobooth_cute'
+        }
+      })
+    }
+  });
+
+  assert(result, 'Expected $done to be called');
+  assert.strictEqual(store.locket_last_photo_url, photoUrl, 'photoUrl must be written to persistent store');
+  assert.strictEqual(store.locket_last_filter_id, 'photobooth_cute', 'filterId must be written to persistent store');
+});

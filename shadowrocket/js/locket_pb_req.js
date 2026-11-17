@@ -380,10 +380,14 @@
             "outputUrl", "output_url", "url", "imageUrl", "image_url",
             "downloadUrl", "download_url", "transformed_image_url", "filtered_image_url"
         ];
+        if (!resObj.result) resObj.result = {};
+        if (!resObj.data) resObj.data = {};
+        if (!resObj.result.data) resObj.result.data = {};
+
         var targets = [
             resObj,
             resObj.result,
-            resObj.result && resObj.result.data,
+            resObj.result.data,
             resObj.data
         ];
         for (var t = 0; t < targets.length; t++) {
@@ -392,15 +396,9 @@
                 for (var f = 0; f < fields.length; f++) {
                     obj[fields[f]] = cleanUrl;
                 }
+                obj.status = 200;
+                obj.success = true;
             }
-        }
-        resObj.status = 200;
-        resObj.success = true;
-        if (!resObj.result) resObj.result = {};
-        resObj.result.status = 200;
-        resObj.result.success = true;
-        for (var f = 0; f < fields.length; f++) {
-            resObj.result[fields[f]] = cleanUrl;
         }
     }
 
@@ -413,6 +411,22 @@
 
             var reqUrl = $request.url || "";
             var reqHeaders = Object.assign({}, ($request && $request.headers) || {});
+            var reqBodyStr = ($request && $request.body) ? $request.body : "";
+            var reqBodyObj = null;
+            if (reqBodyStr) {
+                try { reqBodyObj = JSON.parse(reqBodyStr); } catch (e) {}
+            }
+
+            // CRITICAL: Extract photo URL and filter ID immediately in request mode and persist!
+            var photoUrl = extractPhotoUrl(reqBodyStr, reqBodyObj);
+            var filterId = extractFilterId(reqBodyStr, reqBodyObj, reqUrl);
+
+            if (photoUrl && photoUrl !== FALLBACK_PHOTO_URL) {
+                storeWrite("locket_last_photo_url", photoUrl);
+            }
+            if (filterId) {
+                storeWrite("locket_last_filter_id", filterId);
+            }
 
             // Reroute to authorized image-processing service if target is unrouted
             if (WORKER_HOST && !reqUrl.startsWith(WORKER_HOST)) {
@@ -451,7 +465,8 @@
             var reqBodyObj = null;
             try { reqBodyObj = JSON.parse(reqBodyStr); } catch (e) {}
 
-            var filterId = extractFilterId(reqBodyStr, reqBodyObj, (typeof $request !== "undefined" && $request && $request.url) ? $request.url : "");
+            var reqUrl = (typeof $request !== "undefined" && $request && $request.url) ? $request.url : "";
+            var filterId = extractFilterId(reqBodyStr, reqBodyObj, reqUrl) || storeRead("locket_last_filter_id");
             var isOverlay = isOverlayFrameFilter(filterId);
             var isPhotobooth = isPhotoboothFilter(filterId);
 
@@ -476,10 +491,10 @@
             }
 
             var validOutput = extractOutputUrl(resObj);
+            var inputPhoto = extractPhotoUrl(reqBodyStr, reqBodyObj) || storeRead("locket_last_photo_url");
 
             // Case A: Valid processed output URL is returned from upstream
             if (validOutput && !isHttpError && !hasPayloadError) {
-                // CRITICAL: Preserve the valid upstream output URL! Never overwrite with input photo!
                 delete resObj.error;
                 delete resObj.errors;
                 if (resObj.result) {
@@ -488,32 +503,28 @@
                 }
                 setProcessedOutputUrl(resObj, validOutput);
             }
-            // Case B: Client-side Overlay Frame / Photobooth local composition
-            // ALWAYS return success for photobooth/overlay — never show "Couldn't apply filter"
+            // Case B: Photobooth 4-cut or Overlay Frame local compositing
+            // ALWAYS return HTTP 200 with the captured photo so Locket renders frame and moment
             else if (isOverlay || isPhotobooth) {
-                var inputPhoto = extractPhotoUrl(reqBodyStr, reqBodyObj);
-                var compositeUrl = validOutput || inputPhoto || FALLBACK_PHOTO_URL;
-                setProcessedOutputUrl(resObj, compositeUrl);
+                var targetPhoto = validOutput || inputPhoto || FALLBACK_PHOTO_URL;
+                setProcessedOutputUrl(resObj, targetPhoto);
                 delete resObj.error;
                 delete resObj.errors;
                 if (resObj.result) {
                     delete resObj.result.error;
                     delete resObj.result.errors;
                 }
-                // Force success state
                 resObj.status = 200;
                 resObj.success = true;
                 if (!resObj.result) resObj.result = {};
                 resObj.result.status = 200;
                 resObj.result.success = true;
             }
-            // Case C: Server-side AI processing failure — only for non-photobooth AI filters
+            // Case C: Server-side AI processing failure
             else if (isHttpError || hasPayloadError || !validOutput) {
                 var isExplicitServerError = (respStatus >= 400 || hasPayloadError) && ((resObj.error && (resObj.error.message || typeof resObj.error === "string")) || (resObj.result && resObj.result.error));
-                var inputPhoto = extractPhotoUrl(reqBodyStr, reqBodyObj);
-                var fallbackUrl = inputPhoto || storeRead("locket_last_photo_url") || storeRead("locket_last_image_url");
 
-                if (isExplicitServerError) {
+                if (isExplicitServerError && !inputPhoto) {
                     var errorMsg = (resObj.error && resObj.error.message) ||
                                    (resObj.result && resObj.result.error && resObj.result.error.message) ||
                                    (typeof resObj.error === "string" ? resObj.error : "") ||
@@ -533,9 +544,29 @@
                             error: errorMsg
                         }
                     };
-                } else if (fallbackUrl) {
+                } else if (isExplicitServerError && filterId && !isOverlay && !isPhotobooth && !validOutput) {
+                    var errorMsg = (resObj.error && resObj.error.message) ||
+                                   (resObj.result && resObj.result.error && resObj.result.error.message) ||
+                                   "AI processing failed upstream";
+
+                    resObj = {
+                        status: respStatus >= 400 ? respStatus : 500,
+                        success: false,
+                        error: {
+                            message: errorMsg,
+                            code: "PROCESSING_FAILED",
+                            filterId: filterId
+                        },
+                        result: {
+                            status: respStatus >= 400 ? respStatus : 500,
+                            success: false,
+                            error: errorMsg
+                        }
+                    };
+                } else {
                     // Graceful fallback for non-explicit or 3xx/redirect errors: return photo so app succeeds
-                    setProcessedOutputUrl(resObj, fallbackUrl);
+                    var safeUrl = inputPhoto || FALLBACK_PHOTO_URL;
+                    setProcessedOutputUrl(resObj, safeUrl);
                     delete resObj.error;
                     delete resObj.errors;
                     if (resObj.result) { delete resObj.result.error; delete resObj.result.errors; }
@@ -544,21 +575,6 @@
                     if (!resObj.result) resObj.result = {};
                     resObj.result.status = 200;
                     resObj.result.success = true;
-                } else {
-                    resObj = {
-                        status: respStatus >= 400 ? respStatus : 500,
-                        success: false,
-                        error: {
-                            message: "Processing failed upstream",
-                            code: "PROCESSING_FAILED",
-                            filterId: filterId
-                        },
-                        result: {
-                            status: respStatus >= 400 ? respStatus : 500,
-                            success: false,
-                            error: "Processing failed upstream"
-                        }
-                    };
                 }
             }
 
@@ -569,6 +585,10 @@
             delete respHeaders["content-length"];
             delete respHeaders["Transfer-Encoding"];
             delete respHeaders["transfer-encoding"];
+            delete respHeaders["Location"];
+            delete respHeaders["location"];
+            delete respHeaders["Set-Cookie"];
+            delete respHeaders["set-cookie"];
             respHeaders["Content-Type"] = "application/json; charset=utf-8";
             respHeaders["Access-Control-Allow-Origin"] = "*";
 
