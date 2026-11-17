@@ -52,21 +52,15 @@ assert(parsed.entries.camera_filter_config, "Expected camera_filter_config");
 assert(parsed.entries.celebrity_filter_config, "Expected celebrity_filter_config");
 const celebCfg = JSON.parse(parsed.entries.celebrity_filter_config);
 assert(celebCfg.cameraFilterConfig.pickerFilters.length > 0, "Expected celebrityFilterConfig to contain pickerFilters");
-assert(celebCfg.cameraFilterConfig.filterGroups.length > 0, "Expected celebrityFilterConfig to contain filterGroups");
 const cfg = JSON.parse(parsed.entries.camera_filter_config);
-assert(cfg.sheet_filters.some(f => f.id === "group_hot_ai_3d" || (f.title && f.title.vi && f.title.vi.includes("AI 3D"))), "Expected AI 3D filter group");
-assert(cfg.sheet_filters.some(f => f.id === "group_photobooth" || (f.title && f.title.vi && f.title.vi.includes("Photobooth"))), "Expected Photobooth filter group");
-assert(cfg.sheet_filters.some(f => f.id === "group_frames" || (f.title && f.title.vi && f.title.vi.includes("Khung Viền"))), "Expected Khung Viền filter group");
 assert(cfg.remote_filters && cfg.remote_filters.length > 0, "Expected remote photobooth filters");
 assert(cfg.picker_filters.length > 0, "Expected picker filters");
 assert(cfg.picker_filters.includes("khung_nh_shin_chan_vi_n_m_nh"), "Expected Shin-chan frame in picker filters");
 assert(cfg.picker_filters.includes("khung_hello_kitty_pastel_ng_t_ng_o"), "Expected Hello Kitty frame in picker filters");
 assert(cfg.picker_filters.includes("photobooth_4cut"), "Expected photobooth_4cut in picker filters");
-assert(cfg.picker_filters.includes("looks_maxxing"), "Expected looks_maxxing in picker filters");
-assert(cfg.picker_filters.includes("influencer"), "Expected influencer in picker filters");
-assert(cfg.picker_filters.includes("disco_lights"), "Expected disco_lights in picker filters");
-assert(cfg.picker_filters.includes("beard"), "Expected beard in picker filters");
-assert(cfg.picker_filters.includes("slimed"), "Expected slimed in picker filters");
+assert(cfg.picker_filters.includes("pb_holo_4cut"), "Expected pb_holo_4cut in picker filters");
+assert(cfg.picker_filters.includes("frame_berry_days"), "Expected frame_berry_days in picker filters");
+assert(cfg.picker_filters.includes("cmt_locket"), "Expected cmt_locket in picker filters");
 
 // Test Photobooth at the beginning of picker filters
 assert.strictEqual(cfg.picker_filters[0], "photobooth_4cut", "Expected photobooth_4cut to be first picker filter");
@@ -85,10 +79,10 @@ assert.strictEqual(parsed.entries.camera_roll_video_max_duration, "60.0", "Expec
 assert(parsed.entries.overlay_items, "Expected overlay_items");
 assert(parsed.entries.overlay_dynamic_captions, "Expected overlay_dynamic_captions");
 
-// Test Group A: Filter Registry & Schema Validation
-assert.strictEqual(cfg.remote_filters.length, 117, "Expected all 117 filters in remote_filters");
+// Test Group A: Filter Registry & Schema Validation (28 Offline Photobooth & Frame Filters)
+assert.strictEqual(cfg.remote_filters.length, 28, "Expected 28 offline filters in remote_filters");
 const uniqueFids = new Set(cfg.remote_filters.map(f => f.id));
-assert.strictEqual(uniqueFids.size, 117, "Expected all 117 filters to have unique IDs");
+assert.strictEqual(uniqueFids.size, 28, "Expected 28 filters to have unique IDs");
 
 // Validate required fields on every filter
 cfg.remote_filters.forEach(f => {
@@ -112,15 +106,16 @@ pbFilters.forEach(f => {
 });
 
 const frameFilters = cfg.remote_filters.filter(f => f.category === "Frames");
-assert.strictEqual(frameFilters.length, 18, "Expected 18 Frame filters");
+assert.strictEqual(frameFilters.length, 17, "Expected 17 Frame filters");
 frameFilters.forEach(f => {
     assert.strictEqual(f.style, "cutout", "Expected Frame filter style to be cutout");
     assert.strictEqual(f.overlay, true, "Expected Frame filter overlay to be true");
 });
 
-const lookGroup = cfg.filter_groups.find(g => g.id === "group_looks");
-assert(lookGroup, "Expected group_looks to exist");
-assert.strictEqual(lookGroup.filterIds.length, 24, "Expected 24 Look filters in group_looks");
+// Non-frame / sticker filter has omitted category (decoded as nil Optional)
+const nilCategoryFilters = cfg.remote_filters.filter(f => !f.category);
+assert.strictEqual(nilCategoryFilters.length, 1, "Expected 1 filter with nil/omitted category (stk_dio_pm2)");
+assert.strictEqual(nilCategoryFilters[0].id, "stk_dio_pm2");
 
 // Test Camera Filter Button & Entry Point Regression
 assert.strictEqual(cfg.showFilterButton, true, "Expected showFilterButton to be true");
@@ -129,15 +124,15 @@ assert.strictEqual(cfg.sheetEnabled, true, "Expected sheetEnabled to be true");
 assert.strictEqual(cfg.sheet_enabled, true, "Expected sheet_enabled to be true");
 assert.strictEqual(cfg.openSheetImmediately, false, "Expected openSheetImmediately to be false");
 assert.strictEqual(cfg.open_sheet_immediately, false, "Expected open_sheet_immediately to be false");
-assert.strictEqual(cfg.filters.length, 117, "Expected filters array to contain 117 items");
-assert.strictEqual(cfg.remoteFilters.length, 117, "Expected remoteFilters array to contain 117 items");
-assert.strictEqual(cfg.remote_filters.length, 117, "Expected remote_filters array to contain 117 items");
+assert.strictEqual(cfg.filters.length, 28, "Expected filters array to contain 28 items");
+assert.strictEqual(cfg.remoteFilters.length, 28, "Expected remoteFilters array to contain 28 items");
+assert.strictEqual(cfg.remote_filters.length, 28, "Expected remote_filters array to contain 28 items");
 
 // Test Celebrity Filter Config Entry Point
 assert.strictEqual(celebCfg.cameraFilterConfig.showFilterButton, true, "Expected showFilterButton in celebrity config");
 assert.strictEqual(celebCfg.cameraFilterConfig.show_filter_button, true, "Expected show_filter_button in celebrity config");
-assert.strictEqual(celebCfg.cameraFilterConfig.pickerFilters.length, 81, "Expected pickerFilters in celebrity config");
-assert.strictEqual(celebCfg.cameraFilterConfig.filterGroups.length, 9, "Expected 9 filter groups in celebrity config");
+assert.strictEqual(celebCfg.cameraFilterConfig.pickerFilters.length, 28, "Expected 28 pickerFilters in celebrity config");
+assert.strictEqual(celebCfg.cameraFilterConfig.filterGroups, undefined, "filterGroups must be undefined (removed per Task 1)");
 
 // Test Camera Hardware Config Sanitization (preventing strict Decodable failure)
 const cameraObj = JSON.parse(parsed.entries.camera);
