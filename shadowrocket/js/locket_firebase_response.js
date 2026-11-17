@@ -5593,14 +5593,7 @@ var customPhotoboothFilters = [
         "unlocked": true,
         "is_unlocked": true,
         "isUnlocked": true,
-        "free": true,
-        "selectable": true,
-        "isSelectable": true,
-        "is_selectable": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
+        "free": true
     },
     {
         "id": "group_looks",
@@ -6086,38 +6079,36 @@ var customPhotoboothFilters = [
     }
 
     var cleanRemoteFilters = customPhotoboothFilters.map(function(f) {
-        var cat = f.category || filterCategoryLookup[f.id] || (f.id === "stk_dio_pm2" ? "Frames" : "Looks");
-        var isOverlay = (cat === "Photobooth" || cat === "Frames" || String(f.id).indexOf("pb_") === 0 || String(f.id).indexOf("frame_") === 0 || String(f.id).indexOf("khung_") === 0);
+        var isOverlay = (f.category === "Photobooth" || f.category === "Frames" || String(f.id).indexOf("pb_") === 0 || String(f.id).indexOf("frame_") === 0 || String(f.id).indexOf("khung_") === 0 || f.id === "stk_dio_pm2");
+        var cat = f.category || (isOverlay ? (String(f.id).indexOf("pb_") === 0 && !String(f.id).includes("single") ? "Photobooth" : "Frames") : undefined);
         var img = f.overlayImageUrl || f.imageUrl || f.iconUrl || "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
         var cols = (f.colors && f.colors.length) ? f.colors : ["#FFD6E0", "#FFE4EC"];
         var primaryColor = (cols && cols[0]) || "#FFD6E0";
         var tColor = f.tintColor || f.tint_color || primaryColor;
 
-        return {
+        var filterObj = {
             uid: f.uid || f.id,
             id: f.id,
             name: f.name,
-            category: cat,
             prompt: f.prompt || f.id,
             productUrl: null,
             colors: cols,
             captureButtonColors: (f.captureButtonColors && f.captureButtonColors.length) ? f.captureButtonColors : cols,
-            tintColor: tColor,
             icon: {
                 url: (f.icon && f.icon.url) || img,
                 iconUrl: (f.icon && f.icon.iconUrl) || img,
                 remoteImage: (f.icon && f.icon.remoteImage) || img,
-                sfSymbol: (f.icon && f.icon.sfSymbol) || (isOverlay ? "square.grid.2x2" : "sparkles"),
+                sfSymbol: (f.icon && f.icon.sfSymbol) || (isOverlay ? "square.grid.2x2" : "camera.macro"),
                 emoji: (f.icon && f.icon.emoji) || ""
             },
             textColor: f.textColor || "#FFFFFF",
-            style: isOverlay ? "cutout" : "normal",
-            overlay: isOverlay,
+            style: f.style || "cutout",
+            overlay: f.overlay !== undefined ? f.overlay : true,
             overlayImageUrl: img,
             overlayImageURL: img,
             imageUrl: img,
             iconUrl: img,
-            referenceImages: f.referenceImages || [],
+            referenceImages: [],
             requires_gold: false,
             requiresGold: false,
             is_gold: false,
@@ -6131,8 +6122,12 @@ var customPhotoboothFilters = [
             tryButtonEnabled: true,
             try_button_enabled: true,
             type: "normal",
-            filterType: isOverlay ? "cutout" : "normal"
+            filterType: f.filterType || "normal"
         };
+
+        if (cat) filterObj.category = cat;
+        if (isOverlay) filterObj.tintColor = tColor;
+        return filterObj;
     });
 
     var locketCameraFilterConfig = {
@@ -6157,7 +6152,9 @@ var customPhotoboothFilters = [
         sheet_enabled: true,
         open_sheet_immediately: false,
         sheet_filters_selectable: true,
-        sheetFiltersSelectable: true
+        sheetFiltersSelectable: true,
+        photoboothEnabled: true,
+        photobooth_enabled: true
     };
 
     var locketCelebrityFilterConfig = {
@@ -6183,7 +6180,13 @@ var customPhotoboothFilters = [
     Object.assign(obj.entries, {
         camera_filter_config: JSON.stringify(locketCameraFilterConfig),
         celebrity_filter_config: JSON.stringify(locketCelebrityFilterConfig),
+        show_filter_button: "true",
         sheet_filters_selectable: "true",
+        photobooth_enabled: "true",
+        photobooth_camera_enabled: "true",
+        photobooth_mode_enabled: "true",
+        camera_photobooth_enabled: "true",
+        photobooth_stitcher_enabled: "true",
         camera_roll_preview_enabled: "true",
         camera_roll_video_enabled: "true",
         camera_roll_video_upload_enabled: "true",

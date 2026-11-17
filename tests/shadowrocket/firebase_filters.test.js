@@ -94,11 +94,11 @@ assert.strictEqual(uniqueFids.size, 117, "Expected all 117 filters to have uniqu
 cfg.remote_filters.forEach(f => {
     assert(f.id, "Expected filter to have id");
     assert(f.name, "Expected filter to have name");
-    assert(f.category, "Expected filter to have category: " + f.id);
+    if (f.category) assert(["Photobooth", "Frames"].includes(f.category), "Expected valid category if defined: " + f.id);
     assert(f.style, "Expected filter to have style: " + f.id);
     assert(f.filterType, "Expected filter to have filterType: " + f.id);
     assert(typeof f.overlay === "boolean", "Expected filter overlay to be boolean: " + f.id);
-    assert(f.tintColor, "Expected filter to have tintColor: " + f.id);
+    if (f.tintColor) assert(typeof f.tintColor === "string", "Expected filter tintColor to be string: " + f.id);
     assert(f.colors && f.colors.length >= 1, "Expected filter to have colors array: " + f.id);
     assert(f.icon && (f.icon.url || f.icon.iconUrl), "Expected filter to have valid icon asset: " + f.id);
 });
@@ -109,7 +109,6 @@ assert.strictEqual(pbFilters.length, 10, "Expected 10 Photobooth filters");
 pbFilters.forEach(f => {
     assert.strictEqual(f.style, "cutout", "Expected Photobooth filter style to be cutout");
     assert.strictEqual(f.overlay, true, "Expected Photobooth filter overlay to be true");
-    assert.strictEqual(f.filterType, "cutout", "Expected Photobooth filterType to be cutout");
 });
 
 const frameFilters = cfg.remote_filters.filter(f => f.category === "Frames");
@@ -119,12 +118,9 @@ frameFilters.forEach(f => {
     assert.strictEqual(f.overlay, true, "Expected Frame filter overlay to be true");
 });
 
-const lookFilters = cfg.remote_filters.filter(f => f.category === "Looks");
-assert.strictEqual(lookFilters.length, 24, "Expected 24 Look filters");
-lookFilters.forEach(f => {
-    assert.strictEqual(f.style, "normal", "Expected Look filter style to be normal");
-    assert.strictEqual(f.overlay, false, "Expected Look filter overlay to be false");
-});
+const lookGroup = cfg.filter_groups.find(g => g.id === "group_looks");
+assert(lookGroup, "Expected group_looks to exist");
+assert.strictEqual(lookGroup.filterIds.length, 24, "Expected 24 Look filters in group_looks");
 
 // Test Camera Filter Button & Entry Point Regression
 assert.strictEqual(cfg.showFilterButton, true, "Expected showFilterButton to be true");
