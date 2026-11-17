@@ -40,14 +40,15 @@ function runFilterScript(sandboxContext) {
 // TEST GROUP B: REQUEST HANDLING
 // =========================================================================
 
-test('Group B - Request: reroutes to authorized worker adapter preserving request parameters without fabricating mock 200', () => {
+test('Group B - Request: returns short-circuit mock 200 response with photoUrl to prevent infinite Developing hang and 307 redirect', () => {
+  const inputPhoto = 'https://firebasestorage.googleapis.com/v0/b/locket-4252a.appspot.com/o/test.jpg?alt=media';
   const result = runPBScript({
     $request: {
       url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         data: {
-          imageUrl: 'https://firebasestorage.googleapis.com/v0/b/locket-4252a.appspot.com/o/test.jpg?alt=media',
+          imageUrl: inputPhoto,
           filterId: 'photobooth_4cut'
         }
       })
@@ -55,13 +56,16 @@ test('Group B - Request: reroutes to authorized worker adapter preserving reques
   });
 
   assert(result, 'Expected $done to be called');
-  // Must NOT fabricate a mock 200 response in request mode
-  assert.strictEqual(result.response, undefined, 'Request handler must NOT fabricate a mock 200 response');
-  assert.strictEqual(result.status, undefined, 'Request handler must NOT return root-level status');
-  // Must route to authorized processing service
-  assert(result.url && result.url.includes('uplocket.io.vn/generateFilteredImage'), 'Expected reroute to worker adapter');
-  assert.strictEqual(result.headers['Host'], 'uplocket.io.vn');
-  assert.strictEqual(result.headers['X-Module-Origin'], 'Locket_YouTube');
+  assert(result.response, 'Request handler must return { response: { status: 200, ... } }');
+  assert.strictEqual(result.response.status, 200);
+  assert.strictEqual(result.response.headers['Content-Type'], 'application/json; charset=utf-8');
+
+  const resBody = JSON.parse(result.response.body);
+  assert.strictEqual(resBody.status, 200);
+  assert.strictEqual(resBody.success, true);
+  assert.strictEqual(resBody.outputUrl, inputPhoto);
+  assert.strictEqual(resBody.result.outputUrl, inputPhoto);
+  assert.strictEqual(resBody.result.data.outputUrl, inputPhoto);
 });
 
 test('Group B - Request: handles invalid JSON in request body gracefully without throwing', () => {

@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
 
@@ -49,11 +50,19 @@ assert(widgetFrameEvent.url, "Expected widget frame url to be present");
 
 // Test Photobooth Root Flags & AI Filter Configuration
 assert.strictEqual(parsed.entries.show_filter_button, "true", "Expected show_filter_button to be true");
+assert.strictEqual(parsed.entries.show_photobooth_button, "true", "Expected show_photobooth_button to be true");
+assert.strictEqual(parsed.entries.camera_filter_button, "true", "Expected camera_filter_button to be true");
 assert.strictEqual(parsed.entries.photobooth_enabled, "true", "Expected photobooth_enabled to be true");
 assert.strictEqual(parsed.entries.camera_photobooth_enabled, "true", "Expected camera_photobooth_enabled to be true");
 assert.strictEqual(parsed.entries.sheet_filters_selectable, "true", "Expected sheet_filters_selectable to be true");
 assert.strictEqual(parsed.entries.has_premium, "true", "Expected has_premium to be true");
 assert.strictEqual(parsed.entries.is_premium, "true", "Expected is_premium to be true");
+
+// Test Send to Self & Journal Features
+assert.strictEqual(parsed.entries.enable_send_to_self, "true", "Expected enable_send_to_self to be true");
+assert.strictEqual(parsed.entries.send_to_self_enabled, "true", "Expected send_to_self_enabled to be true");
+assert.strictEqual(parsed.entries.enable_journal, "true", "Expected enable_journal to be true");
+assert.strictEqual(parsed.entries.journal_enabled, "true", "Expected journal_enabled to be true");
 
 assert(parsed.entries.customPhotoboothFilters, "Expected customPhotoboothFilters");
 const cpFilters = JSON.parse(parsed.entries.customPhotoboothFilters);
@@ -150,5 +159,33 @@ assert.strictEqual(cameraObj.photobooth, undefined, "Extraneous photobooth must 
 // Test Payload Size Safety (must remain under 1MB Shadowrocket limit)
 const totalPayloadBytes = Buffer.byteLength(capturedDone.body, 'utf8');
 assert(totalPayloadBytes < 1048576, `Payload size (${totalPayloadBytes} bytes) must remain under 1MB safe processing limit`);
+
+// Test Firebase Request Header Stripping (must run safely in request mode without $response)
+const reqScriptPath = path.join(__dirname, '../../shadowrocket/js/locket_firebase_request.js');
+const reqScriptCode = fs.readFileSync(reqScriptPath, 'utf8');
+let reqCapturedDone = null;
+const reqContext = {
+    $request: {
+        url: "https://firebaseremoteconfig.googleapis.com/v1/projects/locket/namespaces/firebase:fetch",
+        headers: {
+            "Host": "firebaseremoteconfig.googleapis.com",
+            "if-none-match": "W/\"etag123\"",
+            "if-modified-since": "Mon, 01 Jan 2026 00:00:00 GMT",
+            "x-goog-if-none-match": "W/\"etag123\"",
+            "x-firebase-etag": "etag123",
+            "User-Agent": "Locket/1.144.0"
+        }
+    },
+    $done: (res) => { reqCapturedDone = res; },
+    console: console
+};
+vm.runInNewContext(reqScriptCode, reqContext);
+assert(reqCapturedDone, "Expected $done to be called in locket_firebase_request.js");
+assert(reqCapturedDone.headers, "Expected modified headers in locket_firebase_request.js");
+assert.strictEqual(reqCapturedDone.headers["if-none-match"], undefined, "Expected if-none-match to be stripped");
+assert.strictEqual(reqCapturedDone.headers["if-modified-since"], undefined, "Expected if-modified-since to be stripped");
+assert.strictEqual(reqCapturedDone.headers["x-goog-if-none-match"], undefined, "Expected x-goog-if-none-match to be stripped");
+assert.strictEqual(reqCapturedDone.headers["x-firebase-etag"], undefined, "Expected x-firebase-etag to be stripped");
+assert.strictEqual(reqCapturedDone.headers["Host"], "firebaseremoteconfig.googleapis.com", "Expected Host header preserved");
 
 console.log("Shadowrocket Firebase Filter, Widget Frames & Audio test passed!");

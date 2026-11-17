@@ -100,11 +100,28 @@ var currentFrame = getActiveFrame();
         // TASK 1: INJECT REQUIRED ROOT FEATURE FLAGS
         // ============================================================
         obj.entries.show_filter_button = "true";
+        obj.entries.showFilterButton = "true";
+        obj.entries.show_photobooth_button = "true";
+        obj.entries.showPhotoboothButton = "true";
+        obj.entries.camera_filter_button = "true";
+        obj.entries.filter_button = "true";
+        obj.entries.photobooth_button = "true";
+        obj.entries.camera_filter_button_enabled = "true";
+        obj.entries.filter_button_enabled = "true";
+        obj.entries.photobooth_button_enabled = "true";
         obj.entries.photobooth_enabled = "true";
         obj.entries.camera_photobooth_enabled = "true";
         obj.entries.sheet_filters_selectable = "true";
         obj.entries.has_premium = "true";
         obj.entries.is_premium = "true";
+
+        // Flags for "Gửi cho riêng mình" (Send to self / Journal / History / Albums)
+        obj.entries.enable_send_to_self = "true";
+        obj.entries.send_to_self_enabled = "true";
+        obj.entries.enable_journal = "true";
+        obj.entries.journal_enabled = "true";
+        obj.entries.history_enabled = "true";
+        obj.entries.albums_enabled = "true";
 
         // Additional supporting flags for Photobooth & Filters
         obj.entries.photobooth_camera_enabled = "true";
@@ -143,10 +160,16 @@ var currentFrame = getActiveFrame();
                 camera_filters: "enabled",
                 filters: "enabled",
                 photobooth: "enabled",
+                photo_booth: "enabled",
                 photobooth_camera: "enabled",
                 camera_photobooth: "enabled",
                 photobooth_filter: "enabled",
                 camera_filter_button: "enabled",
+                filter_button: "enabled",
+                photobooth_button: "enabled",
+                celebrity_filters: "enabled",
+                send_to_self: "enabled",
+                journal: "enabled",
                 likeness: "enabled",
                 ai_likeness: "enabled",
                 create_likeness: "enabled",
@@ -168,7 +191,10 @@ var currentFrame = getActiveFrame();
                 camera_filter: true,
                 camera_filters: true,
                 filters: true,
-                photobooth: true
+                photobooth: true,
+                photo_booth: true,
+                camera_filter_button: true,
+                photobooth_button: true
             }),
             paywall_presentation_config: JSON.stringify({
                 uid: "paywall_testflight",

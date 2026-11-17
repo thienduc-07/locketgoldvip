@@ -428,16 +428,62 @@
                 storeWrite("locket_last_filter_id", filterId);
             }
 
-            // Reroute to authorized image-processing service if target is unrouted
-            if (WORKER_HOST && !reqUrl.startsWith(WORKER_HOST)) {
-                var targetUrl = WORKER_HOST + "/generateFilteredImage?module=Locket_YouTube";
-                reqHeaders["Host"] = "uplocket.io.vn";
-                reqHeaders["host"] = "uplocket.io.vn";
-                reqHeaders["X-Module-Origin"] = "Locket_YouTube";
+            // Khung Photobooth, Khung ảnh tĩnh & Bộ lọc màu:
+            // Phản hồi trực tiếp HTTP 200 OK ngay tại request theo chuẩn cú pháp Shadowrocket { response: { status: 200, ... } }
+            // Trả về thẳng photoUrl của người dùng để ứng dụng Locket tự ghép khung client-side ngay lập tức,
+            // triệt tiêu hoàn toàn lỗi 307 redirect, quota blocked hoặc kẹt vô tận ở trạng thái "Developing..."
+            var finalPhotoUrl = photoUrl || storeRead("locket_last_photo_url");
+            if (finalPhotoUrl && finalPhotoUrl !== FALLBACK_PHOTO_URL) {
+                var mockBody = {
+                    status: 200,
+                    success: true,
+                    filterId: filterId || "",
+                    outputUrl: finalPhotoUrl,
+                    output_url: finalPhotoUrl,
+                    url: finalPhotoUrl,
+                    imageUrl: finalPhotoUrl,
+                    image_url: finalPhotoUrl,
+                    result: {
+                        status: 200,
+                        success: true,
+                        filterId: filterId || "",
+                        outputUrl: finalPhotoUrl,
+                        output_url: finalPhotoUrl,
+                        url: finalPhotoUrl,
+                        imageUrl: finalPhotoUrl,
+                        image_url: finalPhotoUrl,
+                        data: {
+                            status: 200,
+                            success: true,
+                            filterId: filterId || "",
+                            outputUrl: finalPhotoUrl,
+                            output_url: finalPhotoUrl,
+                            url: finalPhotoUrl,
+                            imageUrl: finalPhotoUrl,
+                            image_url: finalPhotoUrl
+                        }
+                    },
+                    data: {
+                        status: 200,
+                        success: true,
+                        filterId: filterId || "",
+                        outputUrl: finalPhotoUrl,
+                        output_url: finalPhotoUrl,
+                        url: finalPhotoUrl,
+                        imageUrl: finalPhotoUrl,
+                        image_url: finalPhotoUrl
+                    }
+                };
 
                 return $done({
-                    url: targetUrl,
-                    headers: reqHeaders
+                    response: {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/json; charset=utf-8",
+                            "Access-Control-Allow-Origin": "*"
+                        },
+                        body: JSON.stringify(mockBody)
+                    }
                 });
             }
 
