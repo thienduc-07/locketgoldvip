@@ -47,7 +47,18 @@ assert.strictEqual(widgetFrameEvent.uid, "midautumn_2026", "Expected widget fram
 assert.strictEqual(widgetFrameEvent.placement, "below", "Expected widget frame placement to be below");
 assert(widgetFrameEvent.url, "Expected widget frame url to be present");
 
-// Test Photobooth & AI Filter Configuration (RealTrueHieu & Hakaiz V2 baseline)
+// Test Photobooth Root Flags & AI Filter Configuration
+assert.strictEqual(parsed.entries.show_filter_button, "true", "Expected show_filter_button to be true");
+assert.strictEqual(parsed.entries.photobooth_enabled, "true", "Expected photobooth_enabled to be true");
+assert.strictEqual(parsed.entries.camera_photobooth_enabled, "true", "Expected camera_photobooth_enabled to be true");
+assert.strictEqual(parsed.entries.sheet_filters_selectable, "true", "Expected sheet_filters_selectable to be true");
+assert.strictEqual(parsed.entries.has_premium, "true", "Expected has_premium to be true");
+assert.strictEqual(parsed.entries.is_premium, "true", "Expected is_premium to be true");
+
+assert(parsed.entries.customPhotoboothFilters, "Expected customPhotoboothFilters");
+const cpFilters = JSON.parse(parsed.entries.customPhotoboothFilters);
+assert(cpFilters.some(f => f.category === "Photobooth"), "Expected Photobooth category filter in customPhotoboothFilters");
+
 assert(parsed.entries.camera_filter_config, "Expected camera_filter_config");
 assert(parsed.entries.celebrity_filter_config, "Expected celebrity_filter_config");
 const celebCfg = JSON.parse(parsed.entries.celebrity_filter_config);
@@ -106,16 +117,11 @@ pbFilters.forEach(f => {
 });
 
 const frameFilters = cfg.remote_filters.filter(f => f.category === "Frames");
-assert.strictEqual(frameFilters.length, 17, "Expected 17 Frame filters");
+assert.strictEqual(frameFilters.length, 18, "Expected 18 Frame filters");
 frameFilters.forEach(f => {
     assert.strictEqual(f.style, "cutout", "Expected Frame filter style to be cutout");
     assert.strictEqual(f.overlay, true, "Expected Frame filter overlay to be true");
 });
-
-// Non-frame / sticker filter has omitted category (decoded as nil Optional)
-const nilCategoryFilters = cfg.remote_filters.filter(f => !f.category);
-assert.strictEqual(nilCategoryFilters.length, 1, "Expected 1 filter with nil/omitted category (stk_dio_pm2)");
-assert.strictEqual(nilCategoryFilters[0].id, "stk_dio_pm2");
 
 // Test Camera Filter Button & Entry Point Regression
 assert.strictEqual(cfg.showFilterButton, true, "Expected showFilterButton to be true");

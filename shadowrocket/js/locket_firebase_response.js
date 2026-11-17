@@ -1,22 +1,12 @@
 /**
  * @file locket_firebase_response.js
- * Locket VIP - Firebase Remote Config Override Engine (Video 30s + AI Filters & Photobooth)
+ * Locket VIP - Firebase Remote Config Override Engine (Video 60s + AI Filters & Photobooth)
  * 100% Aligned with NightmarketServer production-verified baseline
  */
 // ============================================================
 // Locket Remote Config Rewrite
 // Endpoint: firebaseremoteconfig.googleapis.com
 
-// ============================================================
-// 🎨 BỘ SƯU TẬP WIDGET FRAME VIP (CHỌN KHUNG BẠN THÍCH DƯỚI ĐÂY)
-// 1. "royal_gold" : Khung Hoàng Gia VIP Gold (MẶC ĐỊNH - viền vàng sang trọng trên widget)
-// 2. "daily"      : Tự động đổi khung theo ngày trong tuần (Thứ 2 - CN)
-// 3. "lowg"       : Low G - 'L2K' The Album (Windows 95/98 Retro UI)
-// 4. "kitty_shin" : Hello Kitty & Shin-chan (Cute Pink Retro Gingham)
-// 5. "citopia"    : Citopia Y2K (Metallic Chrome Organic Fluid)
-// 6. "halloween"  : Cute Ghost & Pumpkin (Halloween)
-// 7. "random"     : Tự động đổi ngẫu nhiên mỗi lần mở app
-// ============================================================
 var SELECTED_FRAME = "shin_chan";
 
 var FRAME_CATALOG = {
@@ -83,1932 +73,497 @@ function getActiveFrame() {
 
 var currentFrame = getActiveFrame();
 
-var ua = "";
-if (typeof $request !== "undefined" && $request && $request.headers) {
-    ua = $request.headers["User-Agent"] || $request.headers["user-agent"] || "";
-}
-
-var obj = {};
-try {
-    obj = typeof $response.body === "string" ? JSON.parse($response.body) : ($response.body || {});
-} catch (e) {
-    obj = {};
-}
-
-obj.state = "UPDATE";
-obj.templateVersion = String(Date.now());
-obj.Attention = "Locket VIP Activated (Video 30s + AI Filters + Photobooth)!";
-obj.entries = obj.entries || {};
-obj.entries.cache_ttl_seconds = "0";
-obj.entries.client_cache_ttl_sec = "0";
-obj.entries.cache_expiration_duration_seconds = "0";
-obj.entries.fetch_interval_seconds = "0";
-obj.entries.minimum_fetch_interval_seconds = "0";
-
-// ============================================================
-// 1. CẤU HÌNH GOLD, FEATURE GATES & PAYWALL
-// ============================================================
-    Object.assign(obj.entries, {
-        feature_gates: JSON.stringify({
-            app_icon_picker: "enabled",
-            camera_roll: "enabled",
-            camera_theme: "enabled",
-            locket_views: "enabled",
-            long_captions: "enabled",
-            longer_video: "enabled",
-            unlimited_friends: "enabled",
-            priority_support: "enabled",
-            profile_badge: "enabled",
-            remove_ads: "enabled",
-            video: "enabled",
-            custom_widget_frames: "enabled",
-            streak_recovery: "enabled",
-            longer_videos: "enabled",
-            longer_camera_roll_videos: "enabled",
-            camera_roll_video: "enabled",
-            camera_roll_video_upload: "enabled",
-            camera_roll_longer_videos: "enabled",
-            video_trimmer: "enabled",
-            camera_filter: "enabled",
-            camera_filters: "enabled",
-            filters: "enabled",
-            ai_filters: "enabled",
-            ai_filter: "enabled",
-            likeness: "enabled",
-            ai_likeness: "enabled",
-            create_likeness: "enabled",
-            likeness_creation: "enabled",
-            face_filter: "enabled",
-            face_filters: "enabled",
-            ai_styles: "enabled",
-            ai_style: "enabled",
-            avatars: "enabled",
-            avatar: "enabled"
-        }),
-        camera_filter_enabled: "true",
-        camera_filters_enabled: "true",
-        filters_enabled: "true",
-        ai_filters_enabled: "true",
-        camera_filter_sheet_enabled: "true",
-        camera_filter_picker_enabled: "true",
-        camera_ai_filters_enabled: "true",
-        likeness_enabled: "true",
-        ai_likeness_enabled: "true",
-        create_likeness_enabled: "true",
-        likeness_creation_enabled: "true",
-        camera_filter_likeness_enabled: "true",
-        camera_likeness_enabled: "true",
-        face_filters_enabled: "true",
-        face_filter_enabled: "true",
-        ai_styles_enabled: "true",
-        upsell_features: JSON.stringify({
-            app_icon_picker: true,
-            camera_roll: true,
-            camera_theme: true,
-            locket_views: true,
-            remove_ads: true,
-            custom_widget_frames: true,
-            camera_filter: true,
-            camera_filters: true,
-            filters: true,
-            ai_filters: true
-        }),
-        paywall_presentation_config: JSON.stringify({
-            uid: "paywall_testflight",
-            onboarding: false,
-            after_sent_moment: false,
-            on_foreground: false,
-            interval: 2592000,
-            profile_banner: true
-        }),
-        feature_discovery_popup_config: JSON.stringify({
-            tag: "LOCKET GOLD VIP",
-            tag_gradient: true,
-            tag_style: "gold_gradient",
-            title: "Đã Kích Hoạt 💛",
-            feature_set: [
-                {
-                    title: "Locket VIP ✨",
-                    body: "Quay video 60s • AI & Photobooth • Khung & Caption VIP",
-                    imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg?v=6.0"
-                }
-            ],
-            primary_button_title: "Bắt Đầu",
-            campaign: "locket_gold_welcome_v7",
-            start_at: "2020-01-01T00:00:00",
-            end_at: "2099-12-31T23:59:59",
-            use_local_time_zone: true
-        }),
-        android_subscribe_gold_button_enabled: "false",
-        profile_badge_visible: "true",
-        lunar_new_year_app_icon_enabled: "true",
-        
-    });
-
-    // ============================================================
-    // 2. CHẶN QUẢNG CÁO & TẮT TRACKING (SENTRY)
-    // ============================================================
-    Object.assign(obj.entries, {
-        history_ads_mode: "off",
-        history_ads_prefetch_count: "0",
-        history_ads_prefetch_immediate: "false",
-        history_ads_prefetch_reroute: "false",
-        history_ads_dynamic_insertion: "false",
-        history_ads_refresh_prefetch_on_foreground: "false",
-        history_ads_floor_price: "0",
-        history_ads_floor_price_att: "0",
-        history_ad_log_displayed_on_background: "false",
-        history_ads_debug_menu: "false",
-        sentry_sample_rate: "0",
-        sentry_network_tracing: "false",
-        sentry_performance_tracking: "false",
-        sentry_trace_sample_rate: "0",
-        sentry_profiles_sample_rate: "0"
-    });
-
-    // ============================================================
-    // 3. CAMERA, VIDEO, FILTERS & UPLOAD QUALITY (QUAY & UP 30S CÓ TIẾNG)
-    // ============================================================
-    Object.assign(obj.entries, {
-        camera: JSON.stringify({
-            gold_max_duration: 60.0,
-            goldMaxDuration: 60.0,
-            max_duration: 60.0,
-            maxDuration: 60.0,
-            video_max_duration: 60.0,
-            videoMaxDuration: 60.0,
-            duration: 60.0,
-            ultra_wide: true,
-            ultraWide: true,
-            volume_button: true,
-            volumeButton: true,
-            flash_button: true,
-            telephoto: true,
-            srgb: true,
-            lanczos: true,
-            quality_mbps: 0.9,
-            qualityMbps: 0.9,
-            video_sound_enabled: true,
-            microphone_enabled: true,
-            camera_microphone_enabled: true,
-            audio_enabled: true,
-            sound_enabled: true,
-            record_audio_enabled: true,
-            audio_session_deactivation_enabled: false,
-            upload_main: false
-        }),
-        camera_roll: JSON.stringify({
-            enabled: true,
-            video_enabled: true,
-            video_upload_enabled: true,
-            longer_videos_enabled: true,
-            gold_max_duration: 60.0,
-            goldMaxDuration: 60.0,
-            video_max_duration: 60.0,
-            videoMaxDuration: 60.0,
-            max_duration: 60.0,
-            maxDuration: 60.0,
-            trim_max_duration: 60.0,
-            trimMaxDuration: 60.0,
-            camera_roll_max_duration: 60.0,
-            cameraRollMaxDuration: 60.0,
-            max_video_duration: 60.0,
-            maxVideoDuration: 60.0,
-            duration: 60.0,
-            quality_mbps: 0.9,
-            qualityMbps: 0.9,
-            flash_button: true,
-            video_sound_enabled: true,
-            microphone_enabled: true,
-            audio_enabled: true,
-            sound_enabled: true,
-            trimmer: {
-                max_duration: 60.0,
-                gold_max_duration: 60.0
+(function () {
+    try {
+        var obj = {};
+        if (typeof $response !== "undefined" && $response && $response.body) {
+            try {
+                obj = typeof $response.body === "string" ? JSON.parse($response.body) : $response.body;
+            } catch (e) {
+                obj = {};
             }
-        }),
-        live_photos: JSON.stringify({
-            capture: true,
-            viewing: true,
-            catch_up: true,
-            widget_looping_mode: "never"
-        }),
-    });
+        }
+        obj = obj || {};
+        obj.state = "UPDATE";
+        obj.templateVersion = String(Date.now());
+        obj.Attention = "Locket VIP Activated (Video 60s + Photobooth 4-Cut + Frames VIP)!";
+        obj.entries = obj.entries || {};
 
-// --- BỘ LỌC PHOTOBOOTH & KHUNG VIỀN OFFLINE (KHÔNG PHỤ THUỘC SERVER AI) ---
-var customPhotoboothFilters = [
-    {
-        "uid": "frame_berry_days",
-        "id": "frame_berry_days",
-        "name": "Photobooth Berry Days",
-        "category": "Photobooth",
-        "prompt": "pb_strawberry",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#FFB6C1",
-        "colors": [
-            "#FFB6C1",
-            "#FF69B4"
-        ],
-        "captureButtonColors": [
-            "#FFB6C1",
-            "#FF69B4"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "frame_happy_snap",
-        "id": "frame_happy_snap",
-        "name": "Photobooth Happy Snap",
-        "category": "Photobooth",
-        "prompt": "pb_vintage",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#A8E6CF",
-        "colors": [
-            "#A8E6CF",
-            "#88D49E"
-        ],
-        "captureButtonColors": [
-            "#A8E6CF",
-            "#88D49E"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "frame_sky_diary",
-        "id": "frame_sky_diary",
-        "name": "Photobooth Sky Diary",
-        "category": "Photobooth",
-        "prompt": "pb_galaxy",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#D8B4F8",
-        "colors": [
-            "#D8B4F8",
-            "#C3B1E1"
-        ],
-        "captureButtonColors": [
-            "#D8B4F8",
-            "#C3B1E1"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "photobooth_4cut",
-        "id": "photobooth_4cut",
-        "name": "Photobooth 4 ô",
-        "category": "Photobooth",
-        "prompt": "photobooth_4cut",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#FFD6E0",
-        "colors": [
-            "#FFD6E0",
-            "#FFE4EC"
-        ],
-        "captureButtonColors": [
-            "#FFD6E0",
-            "#FFE4EC"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "photobooth_cute",
-        "id": "photobooth_cute",
-        "name": "Photobooth Cute",
-        "category": "Photobooth",
-        "prompt": "photobooth_cute",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-        "tintColor": "#FFD6E0",
-        "colors": [
-            "#FFD6E0",
-            "#FFE4EC"
-        ],
-        "captureButtonColors": [
-            "#FFD6E0",
-            "#FFE4EC"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_cute.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_holo_4cut",
-        "id": "pb_holo_4cut",
-        "name": "Photobooth Y2K Holo",
-        "category": "Photobooth",
-        "prompt": "pb_holo_4cut",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#C4B5FD",
-        "colors": [
-            "#C4B5FD",
-            "#E0E7FF"
-        ],
-        "captureButtonColors": [
-            "#C4B5FD",
-            "#E0E7FF"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_scrapbook_ripped_4cut",
-        "id": "pb_scrapbook_ripped_4cut",
-        "name": "Photobooth Scrapbook",
-        "category": "Photobooth",
-        "prompt": "pb_scrapbook_ripped_4cut",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#D6A36A",
-        "colors": [
-            "#D6A36A",
-            "#FDE68A"
-        ],
-        "captureButtonColors": [
-            "#D6A36A",
-            "#FDE68A"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_ripped_paper_4cut",
-        "id": "pb_ripped_paper_4cut",
-        "name": "Photobooth Ripped Paper",
-        "category": "Photobooth",
-        "prompt": "pb_ripped_paper_4cut",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#EF4444",
-        "colors": [
-            "#EF4444",
-            "#FCA5A5"
-        ],
-        "captureButtonColors": [
-            "#EF4444",
-            "#FCA5A5"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_denim_ripped_2x2",
-        "id": "pb_denim_ripped_2x2",
-        "name": "Photobooth Denim 4 ô",
-        "category": "Photobooth",
-        "prompt": "pb_denim_ripped_2x2",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#38BDF8",
-        "colors": [
-            "#38BDF8",
-            "#93C5FD"
-        ],
-        "captureButtonColors": [
-            "#38BDF8",
-            "#93C5FD"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "frame_classic_pb",
-        "id": "frame_classic_pb",
-        "name": "Photobooth Cổ Điển",
-        "category": "Photobooth",
-        "prompt": "photoboot",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photoboot.png",
-            "sfSymbol": "square.grid.2x2",
-            "symbol": "square.grid.2x2",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "sticker_b_nh_lu_n_minh_tu",
-        "id": "sticker_b_nh_lu_n_minh_tu",
-        "name": "Trend Tíc Tóc",
-        "category": "Frames",
-        "prompt": "sticker_b_nh_lu_n_minh_tu",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "cmt_locket",
-        "id": "cmt_locket",
-        "name": "Locket Việt Nam",
-        "category": "Frames",
-        "prompt": "cmt_locket",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/cmt_locket.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_hello_kitty_pastel_ng_t_ng_o",
-        "id": "khung_hello_kitty_pastel_ng_t_ng_o",
-        "name": "Hello Kitty Ngọt Ngào",
-        "category": "Frames",
-        "prompt": "khung_hello_kitty_pastel_ng_t_ng_o",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_hello_kitty_h_ng_pastel",
-        "id": "khung_hello_kitty_h_ng_pastel",
-        "name": "Khung Hello Kitty Hồng",
-        "category": "Frames",
-        "prompt": "khung_hello_kitty_h_ng_pastel",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_nh_n_pastel_vi_n_ren",
-        "id": "khung_nh_n_pastel_vi_n_ren",
-        "name": "Nơ Pastel Viền Ren",
-        "category": "Frames",
-        "prompt": "khung_nh_n_pastel_vi_n_ren",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_nh_hoa_pastel_vi_n_xanh_m_nh",
-        "id": "khung_nh_hoa_pastel_vi_n_xanh_m_nh",
-        "name": "Hoa Xinh Pastel",
-        "category": "Frames",
-        "prompt": "khung_nh_hoa_pastel_vi_n_xanh_m_nh",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-        "tintColor": "#51e6e4",
-        "colors": [
-            "#51e6e4",
-            "#fce03f"
-        ],
-        "captureButtonColors": [
-            "#51e6e4",
-            "#fce03f"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_nh_vu_ng_m_ng_nh_n_b_c",
-        "id": "khung_nh_vu_ng_m_ng_nh_n_b_c",
-        "name": "Nhện Đỏ",
-        "category": "Frames",
-        "prompt": "khung_nh_vu_ng_m_ng_nh_n_b_c",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-        "tintColor": "#b3001e",
-        "colors": [
-            "#b3001e",
-            "#b3001e"
-        ],
-        "captureButtonColors": [
-            "#b3001e",
-            "#b3001e"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_kh_ng_gian_xanh_pastel",
-        "id": "khung_kh_ng_gian_xanh_pastel",
-        "name": "Không Gian Xanh",
-        "category": "Frames",
-        "prompt": "khung_kh_ng_gian_xanh_pastel",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-        "tintColor": "#65d9fc",
-        "colors": [
-            "#65d9fc",
-            "#65d9fc"
-        ],
-        "captureButtonColors": [
-            "#65d9fc",
-            "#65d9fc"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_vu_ng_ng_i_sao_h_ng_pastel",
-        "id": "khung_vu_ng_ng_i_sao_h_ng_pastel",
-        "name": "Ngôi Sao Hồng",
-        "category": "Frames",
-        "prompt": "khung_vu_ng_ng_i_sao_h_ng_pastel",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_nh_pastel_vi_n_s_h_i_c_u",
-        "id": "khung_nh_pastel_vi_n_s_h_i_c_u",
-        "name": "Sò Hải Cẩu Pastel",
-        "category": "Frames",
-        "prompt": "khung_nh_pastel_vi_n_s_h_i_c_u",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-        "tintColor": "#cfedfc",
-        "colors": [
-            "#cfedfc",
-            "#cfedfc"
-        ],
-        "captureButtonColors": [
-            "#cfedfc",
-            "#cfedfc"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_nh_shin_chan_vi_n_m_nh",
-        "id": "khung_nh_shin_chan_vi_n_m_nh",
-        "name": "Shin-Chan Viền Mảnh",
-        "category": "Frames",
-        "prompt": "khung_nh_shin_chan_vi_n_m_nh",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-        "tintColor": "#f00008",
-        "colors": [
-            "#f00008",
-            "#faed32"
-        ],
-        "captureButtonColors": [
-            "#f00008",
-            "#faed32"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_anh_o_kitty_v_sao",
-        "id": "khung_anh_o_kitty_v_sao",
-        "name": "Hello Kitty & Sao",
-        "category": "Frames",
-        "prompt": "khung_anh_o_kitty_v_sao",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-        "tintColor": "#780c23",
-        "colors": [
-            "#780c23",
-            "#a94770"
-        ],
-        "captureButtonColors": [
-            "#780c23",
-            "#a94770"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "khung_xanh_v_tay_sao_v_ng",
-        "id": "khung_xanh_v_tay_sao_v_ng",
-        "name": "Sao Vàng Xanh",
-        "category": "Frames",
-        "prompt": "khung_xanh_v_tay_sao_v_ng",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-        "tintColor": "#6fb1d3",
-        "colors": [
-            "#6fb1d3",
-            "#cdd64c"
-        ],
-        "captureButtonColors": [
-            "#6fb1d3",
-            "#cdd64c"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "sinh_nh_t_hello_kitty_ho_i_c",
-        "id": "sinh_nh_t_hello_kitty_ho_i_c",
-        "name": "Sinh Nhật Hello Kitty",
-        "category": "Frames",
-        "prompt": "sinh_nh_t_hello_kitty_ho_i_c",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-        "tintColor": "#FF758C",
-        "colors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "captureButtonColors": [
-            "#FF758C",
-            "#FF7EB3"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_single_y2k_silver_holo",
-        "id": "pb_single_y2k_silver_holo",
-        "name": "Khung Y2K Silver Holo",
-        "category": "Frames",
-        "prompt": "pb_single_y2k_silver_holo",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#C4B5FD",
-        "colors": [
-            "#C4B5FD",
-            "#E0E7FF"
-        ],
-        "captureButtonColors": [
-            "#C4B5FD",
-            "#E0E7FF"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_single_denim_ripped",
-        "id": "pb_single_denim_ripped",
-        "name": "Khung Denim Cá Tính",
-        "category": "Frames",
-        "prompt": "pb_single_denim_ripped",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#38BDF8",
-        "colors": [
-            "#38BDF8",
-            "#93C5FD"
-        ],
-        "captureButtonColors": [
-            "#38BDF8",
-            "#93C5FD"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "pb_single_film_nostalgia",
-        "id": "pb_single_film_nostalgia",
-        "name": "Khung Film Hoài Cổ",
-        "category": "Frames",
-        "prompt": "pb_single_film_nostalgia",
-        "style": "cutout",
-        "type": "normal",
-        "filterType": "cutout",
-        "overlay": true,
-        "imageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-        "tintColor": "#D6A36A",
-        "colors": [
-            "#D6A36A",
-            "#FDE68A"
-        ],
-        "captureButtonColors": [
-            "#D6A36A",
-            "#FDE68A"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png",
-            "sfSymbol": "heart.fill",
-            "symbol": "heart.fill",
-            "emoji": ""
-        },
-        "outputUrl": null,
-        "productUrl": null,
-        "textColor": "#FFFFFF",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true
-    },
-    {
-        "uid": "stk_dio_pm2",
-        "id": "stk_dio_pm2",
-        "name": "Practical Magic 2",
-        "prompt": "locket",
-        "productUrl": null,
-        "colors": [
-            "#7C3AED",
-            "#C4B5FD"
-        ],
-        "captureButtonColors": [
-            "#7C3AED",
-            "#C4B5FD"
-        ],
-        "icon": {
-            "url": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-            "iconUrl": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-            "remoteImage": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-            "sfSymbol": "sparkles",
-            "emoji": ""
-        },
-        "textColor": "#FFFFFF",
-        "style": "cutout",
-        "overlay": true,
-        "overlayImageUrl": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-        "overlayImageURL": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-        "imageUrl": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-        "iconUrl": "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png",
-        "referenceImages": [],
-        "requires_gold": false,
-        "requiresGold": false,
-        "is_gold": false,
-        "isGold": false,
-        "unlocked": true,
-        "is_unlocked": true,
-        "isUnlocked": true,
-        "free": true,
-        "allowsTryFilter": true,
-        "allows_try_filter": true,
-        "tryButtonEnabled": true,
-        "try_button_enabled": true,
-        "type": "normal",
-        "filterType": "cutout"
-    }
-];
+        // Cache TTL forced to 0
+        obj.entries.cache_ttl_seconds = "0";
+        obj.entries.client_cache_ttl_sec = "0";
+        obj.entries.cache_expiration_duration_seconds = "0";
+        obj.entries.fetch_interval_seconds = "0";
+        obj.entries.minimum_fetch_interval_seconds = "0";
 
-    var customPickerFilters = [
-        "photobooth_4cut",
-        "photobooth_cute",
-        "pb_holo_4cut",
-        "pb_scrapbook_ripped_4cut",
-        "pb_ripped_paper_4cut",
-        "pb_denim_ripped_2x2",
-        "frame_berry_days",
-        "frame_happy_snap",
-        "frame_sky_diary",
-        "frame_classic_pb",
-        "khung_nh_shin_chan_vi_n_m_nh",
-        "khung_hello_kitty_pastel_ng_t_ng_o",
-        "khung_hello_kitty_h_ng_pastel",
-        "sinh_nh_t_hello_kitty_ho_i_c",
-        "sticker_b_nh_lu_n_minh_tu",
-        "cmt_locket",
-        "khung_nh_n_pastel_vi_n_ren",
-        "khung_nh_hoa_pastel_vi_n_xanh_m_nh",
-        "khung_nh_vu_ng_m_ng_nh_n_b_c",
-        "khung_kh_ng_gian_xanh_pastel",
-        "khung_vu_ng_ng_i_sao_h_ng_pastel",
-        "khung_nh_pastel_vi_n_s_h_i_c_u",
-        "khung_anh_o_kitty_v_sao",
-        "khung_xanh_v_tay_sao_v_ng",
-        "pb_single_y2k_silver_holo",
-        "pb_single_denim_ripped",
-        "pb_single_film_nostalgia",
-        "stk_dio_pm2"
-    ];
+        // ============================================================
+        // TASK 1: INJECT REQUIRED ROOT FEATURE FLAGS
+        // ============================================================
+        obj.entries.show_filter_button = "true";
+        obj.entries.photobooth_enabled = "true";
+        obj.entries.camera_photobooth_enabled = "true";
+        obj.entries.sheet_filters_selectable = "true";
+        obj.entries.has_premium = "true";
+        obj.entries.is_premium = "true";
 
-    var cleanRemoteFilters = customPhotoboothFilters.map(function(f) {
-        var idLower = String(f.id).toLowerCase();
-        var isPB = idLower.indexOf("photobooth") !== -1 || (idLower.indexOf("pb_") === 0 && idLower.indexOf("single") === -1) || idLower.indexOf("ptb") !== -1 || (idLower.indexOf("frame_") === 0 && (idLower.indexOf("classic_pb") !== -1 || idLower.indexOf("berry") !== -1 || idLower.indexOf("happy") !== -1 || idLower.indexOf("sky") !== -1));
-        var isFrame = !isPB && (idLower.indexOf("frame") !== -1 || idLower.indexOf("khung") !== -1 || idLower.indexOf("single") !== -1 || f.category === "Frames" || f.id === "cmt_locket" || f.id === "sticker_b_nh_lu_n_minh_tu" || f.id === "sinh_nh_t_hello_kitty_ho_i_c");
+        // Additional supporting flags for Photobooth & Filters
+        obj.entries.photobooth_camera_enabled = "true";
+        obj.entries.photobooth_mode_enabled = "true";
+        obj.entries.photobooth_stitcher_enabled = "true";
+        obj.entries.camera_filter_enabled = "true";
+        obj.entries.camera_filters_enabled = "true";
+        obj.entries.filters_enabled = "true";
+        obj.entries.camera_filter_sheet_enabled = "true";
+        obj.entries.camera_filter_picker_enabled = "true";
+        obj.entries.camera_ai_filters_enabled = "true";
 
-        var cat = undefined;
-        if (isPB) {
-            cat = "Photobooth";
-        } else if (isFrame) {
-            cat = "Frames";
+        // Feature Gates & Upsell Features
+        Object.assign(obj.entries, {
+            feature_gates: JSON.stringify({
+                app_icon_picker: "enabled",
+                camera_roll: "enabled",
+                camera_theme: "enabled",
+                locket_views: "enabled",
+                long_captions: "enabled",
+                longer_video: "enabled",
+                unlimited_friends: "enabled",
+                priority_support: "enabled",
+                profile_badge: "enabled",
+                remove_ads: "enabled",
+                video: "enabled",
+                custom_widget_frames: "enabled",
+                streak_recovery: "enabled",
+                longer_videos: "enabled",
+                longer_camera_roll_videos: "enabled",
+                camera_roll_video: "enabled",
+                camera_roll_video_upload: "enabled",
+                camera_roll_longer_videos: "enabled",
+                video_trimmer: "enabled",
+                camera_filter: "enabled",
+                camera_filters: "enabled",
+                filters: "enabled",
+                photobooth: "enabled",
+                photobooth_camera: "enabled",
+                camera_photobooth: "enabled",
+                photobooth_filter: "enabled",
+                camera_filter_button: "enabled",
+                likeness: "enabled",
+                ai_likeness: "enabled",
+                create_likeness: "enabled",
+                likeness_creation: "enabled",
+                face_filter: "enabled",
+                face_filters: "enabled",
+                ai_styles: "enabled",
+                ai_style: "enabled",
+                avatars: "enabled",
+                avatar: "enabled"
+            }),
+            upsell_features: JSON.stringify({
+                app_icon_picker: true,
+                camera_roll: true,
+                camera_theme: true,
+                locket_views: true,
+                remove_ads: true,
+                custom_widget_frames: true,
+                camera_filter: true,
+                camera_filters: true,
+                filters: true,
+                photobooth: true
+            }),
+            paywall_presentation_config: JSON.stringify({
+                uid: "paywall_testflight",
+                onboarding: false,
+                after_sent_moment: false,
+                on_foreground: false,
+                interval: 2592000,
+                profile_banner: true
+            }),
+            feature_discovery_popup_config: JSON.stringify({
+                tag: "LOCKET GOLD VIP",
+                tag_gradient: true,
+                tag_style: "gold_gradient",
+                title: "Đã Kích Hoạt 💛",
+                feature_set: [
+                    {
+                        title: "Locket VIP ✨",
+                        body: "Quay video 60s • Photobooth 4 Ô • Khung & Caption VIP",
+                        imageURL: "https://raw.githubusercontent.com/thienduc-07/locketgoldvip/main/shadowrocket/assets/locket_gold.jpg?v=6.0"
+                    }
+                ],
+                primary_button_title: "Bắt Đầu",
+                campaign: "locket_gold_welcome_v7",
+                start_at: "2020-01-01T00:00:00",
+                end_at: "2099-12-31T23:59:59",
+                use_local_time_zone: true
+            }),
+            android_subscribe_gold_button_enabled: "false",
+            profile_badge_visible: "true",
+            lunar_new_year_app_icon_enabled: "true",
+            custom_widget_frames: "enabled",
+            custom_widget_frames_enabled: "true",
+            ios_widget_frame_event_enabled: "true",
+            widget_frame_event_enabled: "true",
+            android_widget_frame_event_enabled: "true",
+            widget_frame_event_max_images: "5",
+            widget_frame_event: JSON.stringify(currentFrame)
+        });
+
+        // Ad Blocking & Performance
+        Object.assign(obj.entries, {
+            history_ads_mode: "off",
+            history_ads_prefetch_count: "0",
+            history_ads_prefetch_immediate: "false",
+            history_ads_prefetch_reroute: "false",
+            history_ads_dynamic_insertion: "false",
+            history_ads_refresh_prefetch_on_foreground: "false",
+            history_ads_floor_price: "0",
+            history_ads_floor_price_att: "0",
+            history_ad_log_displayed_on_background: "false",
+            history_ads_debug_menu: "false",
+            sentry_sample_rate: "0",
+            sentry_network_tracing: "false",
+            sentry_performance_tracking: "false",
+            sentry_trace_sample_rate: "0",
+            sentry_profiles_sample_rate: "0"
+        });
+
+        // Camera & Video Hardware Configuration
+        Object.assign(obj.entries, {
+            camera: JSON.stringify({
+                gold_max_duration: 60.0,
+                goldMaxDuration: 60.0,
+                max_duration: 60.0,
+                maxDuration: 60.0,
+                video_max_duration: 60.0,
+                videoMaxDuration: 60.0,
+                duration: 60.0,
+                ultra_wide: true,
+                ultraWide: true,
+                volume_button: true,
+                volumeButton: true,
+                flash_button: true,
+                telephoto: true,
+                srgb: true,
+                lanczos: true,
+                quality_mbps: 0.9,
+                qualityMbps: 0.9,
+                video_sound_enabled: true,
+                microphone_enabled: true,
+                camera_microphone_enabled: true,
+                audio_enabled: true,
+                sound_enabled: true,
+                record_audio_enabled: true,
+                audio_session_deactivation_enabled: false,
+                upload_main: false
+            }),
+            camera_roll: JSON.stringify({
+                enabled: true,
+                video_enabled: true,
+                video_upload_enabled: true,
+                longer_videos_enabled: true,
+                gold_max_duration: 60.0,
+                goldMaxDuration: 60.0,
+                video_max_duration: 60.0,
+                videoMaxDuration: 60.0,
+                max_duration: 60.0,
+                maxDuration: 60.0,
+                trim_max_duration: 60.0,
+                trimMaxDuration: 60.0,
+                camera_roll_max_duration: 60.0,
+                cameraRollMaxDuration: 60.0,
+                max_video_duration: 60.0,
+                maxVideoDuration: 60.0,
+                duration: 60.0,
+                quality_mbps: 0.9,
+                qualityMbps: 0.9,
+                flash_button: true,
+                video_sound_enabled: true,
+                microphone_enabled: true,
+                audio_enabled: true,
+                sound_enabled: true,
+                trimmer: {
+                    max_duration: 60.0,
+                    gold_max_duration: 60.0
+                }
+            }),
+            live_photos: JSON.stringify({
+                capture: true,
+                viewing: true,
+                catch_up: true,
+                widget_looping_mode: "never"
+            }),
+            camera_roll_preview_enabled: "true",
+            camera_roll_video_enabled: "true",
+            camera_roll_video_upload_enabled: "true",
+            internal_camera_roll_video_upload_enabled: "true",
+            longer_camera_roll_videos_enabled: "true",
+            camera_roll_longer_videos_enabled: "true",
+            longer_video_enabled: "true",
+            longer_videos_enabled: "true",
+            video_enabled: "true",
+            video_trimmer_enabled: "true",
+            camera_roll_video_max_duration: "60.0",
+            camera_roll_max_duration: "60.0",
+            camera_roll_duration: "60.0",
+            camera_roll_video_trim_max_duration: "60.0",
+            camera_roll_trim_max_duration: "60.0",
+            video_trimmer_max_duration: "60.0",
+            video_trim_max_duration: "60.0",
+            trim_max_duration: "60.0",
+            max_video_duration: "60.0",
+            video_max_duration: "60.0",
+            video_duration: "60.0",
+            longer_video_duration: "60.0",
+            longer_video_max_duration: "60.0",
+            camera_video_max_duration: "60.0",
+            camera_max_duration: "60.0",
+            max_recording_duration: "60.0",
+            recording_max_duration: "60.0",
+            gold_max_duration: "60.0",
+            goldMaxDuration: "60.0",
+            camera_roll_video_max_duration_sec: "60",
+            camera_roll_max_duration_sec: "60",
+            video_max_duration_sec: "60",
+            trim_max_duration_sec: "60",
+            video_quality_mbps: "0.9",
+            video_sound_enabled: "true",
+            video_audio_enabled: "true",
+            microphone_enabled: "true",
+            camera_microphone_enabled: "true",
+            camera_roll_video_sound_enabled: "true",
+            audio_session_deactivation_enabled: "false",
+            audio_enabled: "true",
+            sound_enabled: "true",
+            record_audio_enabled: "true",
+            zoom_enabled: "true",
+            upload_main: "false",
+            upload_main_image_quality: "1.0",
+            upload_main_image_size: "1440",
+            upload_thumbnail_image_quality: "1.0",
+            upload_thumbnail_image_size: "1020",
+            max_friends_count: "999999",
+            friend_limit_mode: "0",
+            soft_friend_limit_threshold_count: "999999",
+            show_friend_limit_on_cam: "false",
+            signup_max_friends_count: "999999",
+            celebrity_inbox_limit: "999999"
+        });
+
+        // ============================================================
+        // TASK 2: SANITIZE customPhotoboothFilters (CASE-SENSITIVE ENUM FIX)
+        // ============================================================
+        function makeFilter(id, name, cat, tint, img) {
+            var iconUrl = img || "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
+            var cols = [tint, tint];
+            var isPB = (cat === "Photobooth");
+            var f = {
+                uid: id,
+                id: id,
+                name: name,
+                prompt: id,
+                productUrl: null,
+                colors: cols,
+                captureButtonColors: cols,
+                tintColor: tint,
+                icon: {
+                    url: iconUrl,
+                    iconUrl: iconUrl,
+                    remoteImage: iconUrl,
+                    sfSymbol: isPB ? "square.grid.2x2" : "camera.macro",
+                    emoji: ""
+                },
+                textColor: "#FFFFFF",
+                style: "cutout",
+                overlay: true,
+                overlayUrl: iconUrl,
+                overlayImageUrl: iconUrl,
+                overlayImageURL: iconUrl,
+                imageUrl: iconUrl,
+                iconUrl: iconUrl,
+                referenceImages: [],
+                requires_gold: false,
+                requiresGold: false,
+                is_gold: false,
+                isGold: false,
+                unlocked: true,
+                is_unlocked: true,
+                isUnlocked: true,
+                free: true,
+                allowsTryFilter: true,
+                allows_try_filter: true,
+                tryButtonEnabled: true,
+                try_button_enabled: true,
+                type: "normal",
+                filterType: "cutout"
+            };
+            if (cat === "Photobooth" || cat === "Frames") {
+                f.category = cat;
+            }
+            return f;
         }
 
-        var img = f.overlayImageUrl || f.imageUrl || f.iconUrl || "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
-        var cols = (f.colors && f.colors.length) ? f.colors : ["#FFD6E0", "#FFE4EC"];
-        var primaryColor = (cols && cols[0]) || "#FFD6E0";
-        var tColor = f.tintColor || f.tint_color || primaryColor;
+        var defaultPhotoboothFilter = makeFilter(
+            "photobooth_4cut",
+            "Photobooth 4 Ô",
+            "Photobooth",
+            "#FFD6E0",
+            "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png"
+        );
 
-        var filterObj = {
-            uid: f.uid || f.id,
-            id: f.id,
-            name: f.name,
-            prompt: f.prompt || f.id,
-            productUrl: null,
-            colors: cols,
-            captureButtonColors: (f.captureButtonColors && f.captureButtonColors.length) ? f.captureButtonColors : cols,
-            icon: {
-                url: (f.icon && f.icon.url) || img,
-                iconUrl: (f.icon && f.icon.iconUrl) || img,
-                remoteImage: (f.icon && f.icon.remoteImage) || img,
-                sfSymbol: (f.icon && f.icon.sfSymbol) || (isPB ? "square.grid.2x2" : "camera.macro"),
-                emoji: (f.icon && f.icon.emoji) || ""
-            },
-            textColor: f.textColor || "#FFFFFF",
-            style: f.style || "cutout",
-            overlay: f.overlay !== undefined ? f.overlay : true,
-            overlayImageUrl: img,
-            overlayImageURL: img,
-            imageUrl: img,
-            iconUrl: img,
-            referenceImages: [],
-            requires_gold: false,
-            requiresGold: false,
-            is_gold: false,
-            isGold: false,
-            unlocked: true,
-            is_unlocked: true,
-            isUnlocked: true,
-            free: true,
-            allowsTryFilter: true,
-            allows_try_filter: true,
-            tryButtonEnabled: true,
-            try_button_enabled: true,
-            type: "normal",
-            filterType: f.filterType || "normal",
-            tintColor: tColor
+        var defaultFiltersCatalog = [
+            defaultPhotoboothFilter,
+            makeFilter("photobooth_cute", "Photobooth Cute", "Photobooth", "#FFD6E0", "https://uplocket.io.vn/uploads/frames/photobooth_cute.png"),
+            makeFilter("pb_holo_4cut", "Photobooth Y2K Holo", "Photobooth", "#C4B5FD", "https://uplocket.io.vn/uploads/frames/pb_holo_4cut.png"),
+            makeFilter("pb_scrapbook_ripped_4cut", "Photobooth Scrapbook", "Photobooth", "#D6A36A", "https://uplocket.io.vn/uploads/frames/pb_scrapbook_ripped_4cut.png"),
+            makeFilter("pb_ripped_paper_4cut", "Photobooth Ripped Paper", "Photobooth", "#EF4444", "https://uplocket.io.vn/uploads/frames/pb_ripped_paper_4cut.png"),
+            makeFilter("pb_denim_ripped_2x2", "Photobooth Denim 4 Ô", "Photobooth", "#38BDF8", "https://uplocket.io.vn/uploads/frames/pb_denim_ripped_2x2.png"),
+            makeFilter("frame_berry_days", "Photobooth Berry Days", "Photobooth", "#FFB6C1", "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png"),
+            makeFilter("frame_happy_snap", "Photobooth Happy Snap", "Photobooth", "#A8E6CF", "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png"),
+            makeFilter("frame_sky_diary", "Photobooth Sky Diary", "Photobooth", "#D8B4F8", "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png"),
+            makeFilter("frame_classic_pb", "Photobooth Cổ Điển", "Photobooth", "#FF758C", "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png"),
+
+            makeFilter("khung_nh_shin_chan_vi_n_m_nh", "Shin-Chan Viền Mảnh", "Frames", "#f00008", "https://uplocket.io.vn/uploads/frames/khung_nh_shin_chan_vi_n_m_nh.png"),
+            makeFilter("khung_hello_kitty_pastel_ng_t_ng_o", "Hello Kitty Ngọt Ngào", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_pastel_ng_t_ng_o.png"),
+            makeFilter("khung_hello_kitty_h_ng_pastel", "Khung Hello Kitty Hồng", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/khung_hello_kitty_h_ng_pastel.png"),
+            makeFilter("sinh_nh_t_hello_kitty_ho_i_c", "Sinh Nhật Hello Kitty", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/sinh_nh_t_hello_kitty_ho_i_c.png"),
+            makeFilter("sticker_b_nh_lu_n_minh_tu", "Trend Tíc Tóc", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/sticker_b_nh_lu_n_minh_tu.png"),
+            makeFilter("cmt_locket", "Locket Việt Nam", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/cmt_locket.png"),
+            makeFilter("khung_nh_n_pastel_vi_n_ren", "Nơ Pastel Viền Ren", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/khung_nh_n_pastel_vi_n_ren.png"),
+            makeFilter("khung_nh_hoa_pastel_vi_n_xanh_m_nh", "Hoa Xinh Pastel", "Frames", "#51e6e4", "https://uplocket.io.vn/uploads/frames/khung_nh_hoa_pastel_vi_n_xanh_m_nh.png"),
+            makeFilter("khung_nh_vu_ng_m_ng_nh_n_b_c", "Nhện Đỏ", "Frames", "#b3001e", "https://uplocket.io.vn/uploads/frames/khung_nh_vu_ng_m_ng_nh_n_b_c.png"),
+            makeFilter("khung_kh_ng_gian_xanh_pastel", "Không Gian Xanh", "Frames", "#65d9fc", "https://uplocket.io.vn/uploads/frames/khung_kh_ng_gian_xanh_pastel.png"),
+            makeFilter("khung_vu_ng_ng_i_sao_h_ng_pastel", "Ngôi Sao Hồng", "Frames", "#FF758C", "https://uplocket.io.vn/uploads/frames/khung_vu_ng_ng_i_sao_h_ng_pastel.png"),
+            makeFilter("khung_nh_pastel_vi_n_s_h_i_c_u", "Sò Hải Cẩu Pastel", "Frames", "#cfedfc", "https://uplocket.io.vn/uploads/frames/khung_nh_pastel_vi_n_s_h_i_c_u.png"),
+            makeFilter("khung_anh_o_kitty_v_sao", "Hello Kitty & Sao", "Frames", "#780c23", "https://uplocket.io.vn/uploads/frames/khung_anh_o_kitty_v_sao.png"),
+            makeFilter("khung_xanh_v_tay_sao_v_ng", "Sao Vàng Xanh", "Frames", "#6fb1d3", "https://uplocket.io.vn/uploads/frames/khung_xanh_v_tay_sao_v_ng.png"),
+            makeFilter("pb_single_y2k_silver_holo", "Khung Y2K Silver Holo", "Frames", "#C4B5FD", "https://uplocket.io.vn/uploads/frames/pb_single_y2k_silver_holo.png"),
+            makeFilter("pb_single_denim_ripped", "Khung Denim Cá Tính", "Frames", "#38BDF8", "https://uplocket.io.vn/uploads/frames/pb_single_denim_ripped.png"),
+            makeFilter("pb_single_film_nostalgia", "Khung Film Hoài Cổ", "Frames", "#D6A36A", "https://uplocket.io.vn/uploads/frames/pb_single_film_nostalgia.png"),
+
+            makeFilter("stk_dio_pm2", "Practical Magic 2", "Frames", "#7C3AED", "https://uplocket.io.vn/uploads/stickers/stk_dio_pm2.png")
+        ];
+
+        var rawFilters = [];
+        if (obj.entries.customPhotoboothFilters) {
+            try {
+                rawFilters = typeof obj.entries.customPhotoboothFilters === "string" 
+                    ? JSON.parse(obj.entries.customPhotoboothFilters) 
+                    : obj.entries.customPhotoboothFilters;
+            } catch (e) {
+                rawFilters = [];
+            }
+        }
+        if (!Array.isArray(rawFilters) || rawFilters.length === 0) {
+            rawFilters = defaultFiltersCatalog;
+        }
+
+        var safeFilters = [];
+        var seenIds = {};
+
+        for (var i = 0; i < rawFilters.length; i++) {
+            var f = rawFilters[i];
+            if (!f || typeof f !== "object") continue;
+            var fId = String(f.id || f.uid || "").toLowerCase();
+            if (!fId || seenIds[fId]) continue;
+
+            // 4. Discard Cloud AI filters
+            var isAI = (fId !== "stk_dio_pm2") && (
+                fId.indexOf("stk_") === 0 ||
+                fId.indexOf("stk_dio_") === 0 ||
+                ["looks_maxxing", "influencer", "toothless", "okay_wig", "bye_brows", "braces", "tatted", "beard", "buns", "mohawk", "bob_cut", "bowling_ball", "blonde_bleached", "princess", "cash_money", "slimed", "happy_birthday", "flower_crown", "cutesy", "sticker_face", "love_bug", "cowboy_cowgirl", "giraffe", "wedding", "clown", "sweet_hearts", "bearded", "frosty", "elf_cutout", "santa_cutout", "easter_bunney_cutout", "leprechaun", "easter_chick_cutout", "lucky_face"].indexOf(fId) !== -1
+            );
+            if (isAI) continue;
+
+            var fObj = Object.assign({}, f);
+            var hasOverlay = Boolean(fObj.overlayUrl || fObj.overlayImageUrl || fObj.overlayImageURL);
+            var hasLut = Boolean(fObj.lutUrl || fObj.lut_url);
+
+            // 1. Photobooth: If id contains 'photobooth', 'ptb', or is exactly '4cut' (case-insensitive check) -> Set filter.category = "Photobooth"
+            var isPhotobooth = fId.indexOf("photobooth") !== -1 || 
+                               fId.indexOf("ptb") !== -1 || 
+                               fId === "4cut" || 
+                               fId.indexOf("4cut") !== -1 || 
+                               (fId.indexOf("pb_") === 0 && fId.indexOf("single") === -1) || 
+                               fId.indexOf("_pb") !== -1 ||
+                               (fObj.name && String(fObj.name).toLowerCase().indexOf("photobooth") !== -1) ||
+                               fObj.category === "Photobooth";
+
+            // 2. Frames: If id contains 'frame' or the object has an overlayUrl -> Set filter.category = "Frames"
+            var isFrame = !isPhotobooth && (
+                fId.indexOf("frame") !== -1 || 
+                fId.indexOf("khung") !== -1 || 
+                fId.indexOf("single") !== -1 ||
+                fObj.category === "Frames" || 
+                hasOverlay
+            );
+
+            // 3. Tints (Color only): If the object has a lutUrl (and is not AI) -> delete filter.category
+            var isTint = !isPhotobooth && !isFrame && hasLut;
+
+            if (isPhotobooth) {
+                fObj.category = "Photobooth";
+                safeFilters.push(fObj);
+                seenIds[fId] = true;
+            } else if (isFrame) {
+                fObj.category = "Frames";
+                safeFilters.push(fObj);
+                seenIds[fId] = true;
+            } else if (isTint) {
+                delete fObj.category;
+                safeFilters.push(fObj);
+                seenIds[fId] = true;
+            }
+        }
+
+        // ============================================================
+        // TASK 3: FALLBACK SAFEGUARD
+        // ============================================================
+        var hasPhotobooth = false;
+        for (var j = 0; j < safeFilters.length; j++) {
+            if (safeFilters[j].category === "Photobooth") {
+                hasPhotobooth = true;
+                break;
+            }
+        }
+        if (!hasPhotobooth) {
+            safeFilters.unshift(defaultPhotoboothFilter);
+        }
+
+        // Finally, stringify safeFilters back into entries.customPhotoboothFilters
+        obj.entries.customPhotoboothFilters = JSON.stringify(safeFilters);
+
+        var safePickerIds = safeFilters.map(function(item) { return item.id; });
+        var locketCameraFilterConfig = {
+            showFilterButton: true,
+            allowsCustomFilters: true,
+            referenceImageAttachmentEnabled: true,
+            sheetEnabled: true,
+            openSheetImmediately: false,
+            pickerFilters: safePickerIds,
+            picker_filters: safePickerIds,
+            remoteFilters: safeFilters,
+            remote_filters: safeFilters,
+            filters: safeFilters,
+            show_filter_button: true,
+            allows_custom_filters: true,
+            reference_image_attachment_enabled: true,
+            sheet_enabled: true,
+            open_sheet_immediately: false,
+            sheet_filters_selectable: true,
+            sheetFiltersSelectable: true,
+            photoboothEnabled: true,
+            photobooth_enabled: true
         };
 
-        if (cat === "Photobooth" || cat === "Frames") {
-            filterObj.category = cat;
-        } else {
-            delete filterObj.category;
-        }
+        var locketCelebrityFilterConfig = {
+            celebrityUid: "locket_admin_custom",
+            cameraFilterConfig: locketCameraFilterConfig
+        };
 
-        return filterObj;
-    });
+        obj.entries.camera_filter_config = JSON.stringify(locketCameraFilterConfig);
+        obj.entries.celebrity_filter_config = JSON.stringify(locketCelebrityFilterConfig);
 
-    var locketCameraFilterConfig = {
-        showFilterButton: true,
-        allowsCustomFilters: true,
-        referenceImageAttachmentEnabled: true,
-        sheetEnabled: true,
-        openSheetImmediately: false,
-        pickerFilters: customPickerFilters,
-        picker_filters: customPickerFilters,
-        remoteFilters: cleanRemoteFilters,
-        remote_filters: cleanRemoteFilters,
-        filters: cleanRemoteFilters,
-        show_filter_button: true,
-        allows_custom_filters: true,
-        reference_image_attachment_enabled: true,
-        sheet_enabled: true,
-        open_sheet_immediately: false,
-        sheet_filters_selectable: true,
-        sheetFiltersSelectable: true,
-        photoboothEnabled: true,
-        photobooth_enabled: true
-    };
-
-    var locketCelebrityFilterConfig = {
-        celebrityUid: "locket_admin_custom",
-        cameraFilterConfig: locketCameraFilterConfig
-    };
-
-    Object.assign(obj.entries, {
-        camera_filter_config: JSON.stringify(locketCameraFilterConfig),
-        celebrity_filter_config: JSON.stringify(locketCelebrityFilterConfig),
-        show_filter_button: "true",
-        sheet_filters_selectable: "true",
-        photobooth_enabled: "true",
-        photobooth_camera_enabled: "true",
-        photobooth_mode_enabled: "true",
-        camera_photobooth_enabled: "true",
-        photobooth_stitcher_enabled: "true",
-        camera_roll_preview_enabled: "true",
-        camera_roll_video_enabled: "true",
-        camera_roll_video_upload_enabled: "true",
-        internal_camera_roll_video_upload_enabled: "true",
-        longer_camera_roll_videos_enabled: "true",
-        camera_roll_longer_videos_enabled: "true",
-        longer_video_enabled: "true",
-        longer_videos_enabled: "true",
-        video_enabled: "true",
-        video_trimmer_enabled: "true",
-        camera_roll_video_max_duration: "60.0",
-        camera_roll_max_duration: "60.0",
-        camera_roll_duration: "60.0",
-        camera_roll_video_trim_max_duration: "60.0",
-        camera_roll_trim_max_duration: "60.0",
-        video_trimmer_max_duration: "60.0",
-        video_trim_max_duration: "60.0",
-        trim_max_duration: "60.0",
-        max_video_duration: "60.0",
-        video_max_duration: "60.0",
-        video_duration: "60.0",
-        longer_video_duration: "60.0",
-        longer_video_max_duration: "60.0",
-        camera_video_max_duration: "60.0",
-        camera_max_duration: "60.0",
-        max_recording_duration: "60.0",
-        recording_max_duration: "60.0",
-        gold_max_duration: "60.0",
-        goldMaxDuration: "60.0",
-        camera_roll_video_max_duration_sec: "60",
-        camera_roll_max_duration_sec: "60",
-        video_max_duration_sec: "60",
-        trim_max_duration_sec: "60",
-        video_quality_mbps: "0.9",
-        video_sound_enabled: "true",
-        video_audio_enabled: "true",
-        microphone_enabled: "true",
-        camera_microphone_enabled: "true",
-        camera_roll_video_sound_enabled: "true",
-        audio_session_deactivation_enabled: "false",
-        audio_enabled: "true",
-        sound_enabled: "true",
-        record_audio_enabled: "true",
-        zoom_enabled: "true",
-        upload_main: "false",
-        upload_main_image_quality: "1.0",
-        upload_main_image_size: "1440",
-        upload_thumbnail_image_quality: "1.0",
-        upload_thumbnail_image_size: "1020"
-    });
-
-    // ============================================================
-    // 4. BẠN BÈ, GIỚI HẠN & ĐỀ XUẤT KẾT BẠN
-    // ============================================================
-    Object.assign(obj.entries, {
-        max_friends_count: "999999",
-        friend_limit_mode: "0",
-        soft_friend_limit_threshold_count: "999999",
-        show_friend_limit_on_cam: "false",
-        signup_max_friends_count: "999999",
-        celebrity_inbox_limit: "999999",
-        friend_limit_geo_override: JSON.stringify({ experiments: {}, area_code_overrides: {} }),
-        friends_sheet_locket_count_config: JSON.stringify({
-            items: [
-                { threshold: 0, icon_name: "heart" },
-                { threshold: 1, icon_name: "heart.fill" },
-                { threshold: 10, emoji: "🤍" },
-                { threshold: 100, emoji: "💛" },
-                { threshold: 500, emoji: "❤️‍🔥" },
-                { threshold: 1000, emoji: "🌟🫶🌟" },
-                { threshold: 2000, emoji: "✨💟✨" },
-                { threshold: 5000, emoji: "⚡️😵‍💫⚡" },
-                { threshold: 10000, emoji: "✨⚡️😱⚡✨" }
-            ]
-        }),
-        friend_locket_count_config: JSON.stringify({
-            items: [
-                { threshold: 0, icon_name: "heart" },
-                { threshold: 1, icon_name: "heart.fill" },
-                { threshold: 10, emoji: "🤍" },
-                { threshold: 100, emoji: "💛" },
-                { threshold: 500, emoji: "❤️‍🔥" },
-                { threshold: 1000, emoji: "✨💗✨" },
-                { threshold: 2000, emoji: "✨️⭐️✨" },
-                { threshold: 5000, emoji: "✨💎✨" },
-                { threshold: 10000, emoji: "✨🔐💛✨" }
-            ]
-        }),
-        new_friends_monitoring_enabled: "true",
-        improved_friend_suggestions: "true",
-        show_friend_suggestions_by_default: "true",
-        emoji_friend_suggestions: "true",
-        prompt_contact_permissions_on_search: "true",
-        populate_phone_numbers_from_suggest_friends: "true",
-        hide_friends_enabled: "true",
-        hide_invite_links: "false",
-        hide_skip_contacts: "true",
-        show_all_contacts: "true",
-        show_invite_suggestions: "true",
-        show_no_friends_bottom_sheet: "false",
-        signup_allow_skip_add_friends: "true"
-    });
-
-    // ============================================================
-    // 5. MOMENTS, STREAK, CHAT & TƯƠNG TÁC
-    // ============================================================
-    try {
-        var streak = JSON.parse(obj.entries.streak_config || "{}");
-        streak.minimum_recovery_count = 0;
-        streak.minimum_display_count = 0;
-        obj.entries.streak_config = JSON.stringify(streak);
-    } catch (e) {}
-
-    Object.assign(obj.entries, {
-        moment_views_enabled: "true",
-        moment_views_v2: "true",
-        record_moment_views: "true",
-        notify_moment_views: "true",
-        get_moment_views_as_cloud_function: "true",
-        moment_reactions_v2: "true",
-        chat_reactions_enabled: "true",
-        conversation_reactions: "true",
-        typing_indicators_enabled: "true",
-        unsend_message_enabled: "true",
-        reply_prototype_enabled: "true",
-        messages_integration: "true",
-        conversations_enabled: "true",
-        fetch_moments_in_conversation: "true",
-        hide_chat_button: "false",
-        groups_enabled: "true",
-        send_to_self_only_mode: "always_enabled",
-        time_travel_rewind_v2_enabled: "true",
-        calendar_delete_moment_enabled: "true",
-        calendar_rewind_enabled: "false",
-        locket_yearbook_story_sharing_encouraged: "true",
-        rollcall_enabled: "true",
-        rollcall_comment_actions: "true",
-        rollcall_profile_button: "true",
-        rollcall_prompt_export_after_share: "true",
-        rollcall_confirm_skip_tagging: "false",
-        rollcall_tap_to_tag_enabled: "false"
-    });
-
-    // ============================================================
-    // 6. WIDGET, THÔNG BÁO & GIAO DIỆN (JOURNAL / PROFILE)
-    // ============================================================
-    Object.assign(obj.entries, {
-        widget_frame_event_max_images: "5",
-        android_widget_frame_event_enabled: "true",
-        ios_widget_frame_event_enabled: "true",
-        widget_frame_event_enabled: "true",
-        widget_badge_enabled: "true",
-        widget_badge_v2: "true",
-        widget_stale_state_enabled: "false",
-        widget_last_sent_indicator: "false",
-        widget_sync_token_reload_mode: "clearTokenNever",
-        widget_frame_event: JSON.stringify({
-            uid: currentFrame.uid || "midautumn_2026",            
-            url: currentFrame.url,
-            use_local_time_zone: true,
-            placement: currentFrame.placement || "below",
-            start_at: "2020-01-01T00:00:00",
-            end_at: "2099-12-31T23:59:59"
-        }),
-        custom_widget_frames: "enabled",
-        custom_widget_frames_enabled: "true",
-        live_activity_onboarding: "true",
-        live_activity_onboarding_variant: "friending",
-        register_live_activity_push_to_start_token: "true",
-        live_activity_remove_stale_start_token: "true",
-        notification_preferences_live_activities: "true",
-        notification_preferences: "true",
-        notification_reply_body_visible: "true",
-        prompt_notification_permissions_after_friending: "true",
-        activity_bar_enabled: "true",
-        journal_activity_bar_enabled: "true",
-        journal_settings: JSON.stringify({
-            debug_menu_enabled: false,
-            focus_animation: true,
-            compact_header: true,
-            friends_button: true,
-            reverse_scroll_direction: false,
-            streak_visualization: true,
-            streak_visualization_style: "gradient",
-            streak_header_minimum_count: 0,
-            streak_visualization_minimum_count: 2,
-            overlay_indicators: { location: true, music: true, static_content: true, weather: true }
-        }),
-        qr_code_config: JSON.stringify({ profile_enabled: true, scanning_enabled: true }),
-        custom_profile_pics: "true",
-        profile_menu_v2_enabled: "true"
-    });
-
-    // ============================================================
-    // 7. HỆ THỐNG, CACHE & STORAGE CDN
-    // ============================================================
-    Object.assign(obj.entries, {
-        cdn_domain_replacements: JSON.stringify({}),
-        cdn_domain_replacements_video: "true",
-        storage_bucket: "gs://locket-img",
-        storage_bucket_video: "gs://locket-video",
-        image_cache_max_age_sec: "157680000",
-        image_cache_max_size: "400000000",
-        history_cache_age_days: "1000",
-        user_cache_max_age_sec: "691200",
-        friends_cache_max_age_sec: "2592000",
-        image_fetch_cache: "true",
-        image_cache_use_shared: "true",
-        use_doc_dir_for_image_cache: "true",
-        efficient_history_cache_invalidation: "true",
-        timestamp_based_history_fetches: "true",
-        get_latest_moment_v2: "true",
-        fetch_users_from_cloud_function: "true",
-        refresh_interval: "60",
-        firestore_refresh_v2: "true",
-        firestore_refresh_v3: "true",
-        keychain_access_retries: "true",
-        blocked_users_cached_sync_enabled: "true",
-        beta_features_enabled: "true",
-        join_testflight_enabled: "true",
-        safety_center: "true",
-        help_center: "true",
-        support_v2: "true",
-        privacy_choices_setting: "true",
-        request_att_permission: "true",
-        invite_link_preview_variant: "4",
-        share_history_config: JSON.stringify({ prompt_enabled: false, fetching_enabled: true }),
-        share_history_prompt_enabled: "false",
-        use_thumbnails_for_sharing: "true",
-        use_thumbnails_in_timeline: "true",
-        persist_onboarding_step: "true",
-        onboarding_contact_permission_step: "true"
-    });
-
-    // ============================================================
-    // 8. OVERLAY & CUSTOM CAPTIONS
+// 8. OVERLAY & CUSTOM CAPTIONS
     // ============================================================
     Object.assign(obj.entries, {
         overlay_navigator_enabled: "true",
@@ -2288,10 +843,16 @@ var customPhotoboothFilters = [
         ])
     });
 
-$done({
-    status: 200,
-    headers: {
-        "Content-Type": "application/json; charset=utf-8"
-    },
-    body: JSON.stringify(obj)
-});
+
+
+        $done({
+            status: 200,
+            headers: {
+                "Content-Type": "application/json; charset=utf-8"
+            },
+            body: JSON.stringify(obj)
+        });
+    } catch (err) {
+        $done({ body: typeof $response !== "undefined" && $response && $response.body ? $response.body : "{}" });
+    }
+})();
