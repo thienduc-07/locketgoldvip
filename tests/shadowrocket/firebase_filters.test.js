@@ -64,6 +64,10 @@ assert.strictEqual(parsed.entries.enable_send_to_self, "true", "Expected enable_
 assert.strictEqual(parsed.entries.send_to_self_enabled, "true", "Expected send_to_self_enabled to be true");
 assert.strictEqual(parsed.entries.enable_journal, "true", "Expected enable_journal to be true");
 assert.strictEqual(parsed.entries.journal_enabled, "true", "Expected journal_enabled to be true");
+assert.strictEqual(parsed.entries.history_enabled, "true", "Expected history_enabled to be true");
+assert.strictEqual(parsed.entries.albums_enabled, "true", "Expected albums_enabled to be true");
+assert.strictEqual(fg.send_to_self, "enabled", "Expected send_to_self in feature_gates");
+assert.strictEqual(fg.journal, "enabled", "Expected journal in feature_gates");
 
 assert(parsed.entries.customPhotoboothFilters, "Expected customPhotoboothFilters");
 const cpFilters = JSON.parse(parsed.entries.customPhotoboothFilters);

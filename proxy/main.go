@@ -171,6 +171,11 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// 1. Serve AI-processed images directly to Locket app
+		if handler.ServeAIProcessedImage(w, r) {
+			return
+		}
+
 		if handler.IsChangeProfileInfo(r.URL.Path) {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -178,19 +183,10 @@ func main() {
 			_, _ = w.Write(handler.ChangeProfileInfoMockResponse())
 			return
 		}
-		if strings.Contains(r.URL.Path, "generateFilteredImage") && r.Body != nil {
-			bodyBytes, err := io.ReadAll(r.Body)
-			if err == nil {
-				r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-				photoURL, filterID := handler.ExtractPhotoURLAndFilterID(bodyBytes)
-				if photoURL != "" && handler.IsOverlayOrPhotoboothFilter(filterID) {
-					w.Header().Set("Content-Type", "application/json; charset=utf-8")
-					w.Header().Set("Access-Control-Allow-Origin", "*")
-					w.WriteHeader(http.StatusOK)
-					_, _ = w.Write(handler.BuildMockFilterResponse(photoURL))
-					return
-				}
-			}
+
+		aiEngineURL := os.Getenv("AI_ENGINE_URL")
+		if handler.HandleGenerateFilteredImage(w, r, aiEngineURL) {
+			return
 		}
 		revProxy.ServeHTTP(w, r)
 	})

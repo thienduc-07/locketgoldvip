@@ -12,7 +12,15 @@ var cameraFilterConfigJSON string
 
 // ponytail: production-verified RemoteConfig dictionary mirroring Locket-XVIP. Upgrade if dynamic runtime seller customization API is requested.
 var firebaseOverrides = map[string]string{
-	"feature_gates": `{"app_icon_picker":"enabled","camera_roll":"enabled","camera_theme":"enabled","locket_views":"enabled","long_captions":"enabled","longer_video":"enabled","unlimited_friends":"enabled","priority_support":"enabled","profile_badge":"enabled","remove_ads":"enabled","video":"enabled","custom_widget_frames":"enabled","streak_recovery":"enabled","longer_videos":"enabled","longer_camera_roll_videos":"enabled","camera_roll_video":"enabled","camera_roll_video_upload":"enabled","camera_roll_longer_videos":"enabled","video_trimmer":"enabled","camera_filter":"enabled","camera_filters":"enabled","filters":"enabled","ai_filters":"enabled","ai_filter":"enabled","likeness":"enabled","ai_likeness":"enabled","create_likeness":"enabled","likeness_creation":"enabled","face_filter":"enabled","face_filters":"enabled","ai_styles":"enabled","ai_style":"enabled","avatars":"enabled","avatar":"enabled","can_record_30s_video":"enabled","can_upload_30s_video":"enabled","can_record_60s_video":"enabled","can_upload_60s_video":"enabled"}`,
+	"feature_gates": `{"app_icon_picker":"enabled","camera_roll":"enabled","camera_theme":"enabled","locket_views":"enabled","long_captions":"enabled","longer_video":"enabled","unlimited_friends":"enabled","priority_support":"enabled","profile_badge":"enabled","remove_ads":"enabled","video":"enabled","custom_widget_frames":"enabled","streak_recovery":"enabled","longer_videos":"enabled","longer_camera_roll_videos":"enabled","camera_roll_video":"enabled","camera_roll_video_upload":"enabled","camera_roll_longer_videos":"enabled","video_trimmer":"enabled","camera_filter":"enabled","camera_filters":"enabled","filters":"enabled","ai_filters":"enabled","ai_filter":"enabled","likeness":"enabled","ai_likeness":"enabled","create_likeness":"enabled","likeness_creation":"enabled","face_filter":"enabled","face_filters":"enabled","ai_styles":"enabled","ai_style":"enabled","avatars":"enabled","avatar":"enabled","send_to_self":"enabled","journal":"enabled","can_record_30s_video":"enabled","can_upload_30s_video":"enabled","can_record_60s_video":"enabled","can_upload_60s_video":"enabled"}`,
+
+	// Send to self / Journal / History / Albums flags ("Gửi cho riêng mình")
+	"enable_send_to_self":  "true",
+	"send_to_self_enabled": "true",
+	"enable_journal":       "true",
+	"journal_enabled":      "true",
+	"history_enabled":      "true",
+	"albums_enabled":       "true",
 
 	"camera_filter_enabled":         "true",
 	"camera_filters_enabled":        "true",
