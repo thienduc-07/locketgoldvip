@@ -1,9 +1,16 @@
 import os
 from typing import List, Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
+
     APP_NAME: str = "Locket AI Filter Engine"
     APP_ENV: str = "development"
     DEBUG: bool = True
@@ -30,11 +37,6 @@ class Settings(BaseSettings):
     FAL_KEY: Optional[str] = None
     REPLICATE_API_TOKEN: Optional[str] = None
     HUGGINGFACE_API_KEY: Optional[str] = None
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
 
 
 settings = Settings()

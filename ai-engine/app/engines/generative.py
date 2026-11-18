@@ -1,7 +1,10 @@
 import os
+import io
+import base64
 import cv2
 import numpy as np
 import httpx
+from PIL import Image
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Any, Optional
 from app.core.config import settings
@@ -46,29 +49,148 @@ class LocalCVProvider(GenerativeModelProvider):
 
 class FalAIProvider(GenerativeModelProvider):
     """
-    Optional Cloud Generative Provider (Fal.ai SDXL-Lightning / Fast SDXL).
-    Only enabled when FAL_KEY is configured in environment.
+    Optional Cloud Generative Provider (Fal.ai Fast SDXL / SDXL-Lightning).
+    Only active when FAL_KEY is explicitly configured in environment.
     Estimated cost: $0.0015 - $0.0030 per image generation.
+    Enforces request timeout, HTTP error handling, response validation,
+    and safe fallback without blocking the server.
     """
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.endpoint = "https://fal.run/fal-ai/fast-sdxl/image-to-image"
+    def __init__(self, api_key: Optional[str] = None, model_id: str = "fal-ai/fast-sdxl/image-to-image", timeout_sec: float = 12.0):
+        self.api_key = api_key or settings.FAL_KEY
+        self.model_id = model_id
+        self.endpoint = f"https://fal.run/{self.model_id}"
+        self.timeout_sec = timeout_sec
+
+    def is_available(self) -> bool:
+        """Checks if valid credentials are configured without throwing exceptions."""
+        return bool(self.api_key and len(self.api_key.strip()) > 8)
+
+    def get_status(self) -> Dict[str, Any]:
+        """Returns provider readiness and metadata."""
+        return {
+            "provider": "fal_ai",
+            "model_id": self.model_id,
+            "configured": self.is_available(),
+            "status": "ready" if self.is_available() else "unconfigured_missing_key",
+            "estimated_cost_usd": 0.002
+        }
 
     async def generate_style(
         self,
         img_rgb: np.ndarray,
         style_prompt: str,
         filter_id: str,
-        intensity: float = 1.0
+        intensity: float = 1.0,
+        http_client: Optional[httpx.AsyncClient] = None
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
-        # Isolated provider implementation
-        # If API key is invalid or call fails, callers gracefully fall back to LocalCVProvider
-        return img_rgb, {
-            "provider": "fal_ai",
-            "model": "fast-sdxl-lightning",
-            "cost_usd": 0.002,
-            "status": "fallback_to_local_cv_active"
+        """
+        Executes generative transformation via Fal.ai API.
+        If credentials are absent or remote API returns an error,
+        gracefully returns original array with detailed status for fallback.
+        """
+        if not self.is_available():
+            return img_rgb, {
+                "provider": "fal_ai",
+                "model": self.model_id,
+                "status": "skipped_no_credentials",
+                "error": "FAL_KEY environment variable is not configured",
+                "fallback_applied": True
+            }
+
+        # Encode input image to JPEG data URI
+        try:
+            pil_img = Image.fromarray(img_rgb)
+            bio = io.BytesIO()
+            pil_img.save(bio, format="JPEG", quality=90)
+            b64_img = base64.b64encode(bio.getvalue()).decode("ascii")
+            image_url = f"data:image/jpeg;base64,{b64_img}"
+        except Exception as e:
+            return img_rgb, {
+                "provider": "fal_ai",
+                "status": "encoding_error",
+                "error": f"Failed to encode input image for Fal.ai payload: {str(e)}",
+                "fallback_applied": True
+            }
+
+        headers = {
+            "Authorization": f"Key {self.api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "LocketAIEngine/1.0"
         }
+        payload = {
+            "image_url": image_url,
+            "prompt": style_prompt,
+            "strength": float(np.clip(intensity, 0.1, 0.9)),
+            "num_inference_steps": 4,
+            "enable_safety_checker": True
+        }
+
+        should_close = False
+        client = http_client
+        if client is None:
+            client = httpx.AsyncClient(timeout=self.timeout_sec)
+            should_close = True
+
+        try:
+            resp = await client.post(self.endpoint, json=payload, headers=headers)
+            if resp.status_code != 200:
+                return img_rgb, {
+                    "provider": "fal_ai",
+                    "status": "http_error",
+                    "http_status": resp.status_code,
+                    "error": resp.text[:200],
+                    "fallback_applied": True
+                }
+
+            data = resp.json()
+            images = data.get("images") or []
+            if not images or not isinstance(images, list) or "url" not in images[0]:
+                return img_rgb, {
+                    "provider": "fal_ai",
+                    "status": "schema_error",
+                    "error": "Fal.ai response did not contain expected images[0].url field",
+                    "fallback_applied": True
+                }
+
+            # Download generated result
+            img_url = images[0]["url"]
+            img_resp = await client.get(img_url)
+            if img_resp.status_code != 200:
+                return img_rgb, {
+                    "provider": "fal_ai",
+                    "status": "download_error",
+                    "error": f"Failed to download generated image from {img_url}",
+                    "fallback_applied": True
+                }
+
+            out_pil = Image.open(io.BytesIO(img_resp.content)).convert("RGB")
+            out_np = np.array(out_pil)
+
+            return out_np, {
+                "provider": "fal_ai",
+                "model": self.model_id,
+                "status": "success",
+                "cost_usd": 0.002,
+                "fallback_applied": False
+            }
+
+        except httpx.TimeoutException:
+            return img_rgb, {
+                "provider": "fal_ai",
+                "status": "timeout",
+                "error": f"Fal.ai request exceeded timeout of {self.timeout_sec}s",
+                "fallback_applied": True
+            }
+        except Exception as e:
+            return img_rgb, {
+                "provider": "fal_ai",
+                "status": "exception",
+                "error": str(e),
+                "fallback_applied": True
+            }
+        finally:
+            if should_close:
+                await client.aclose()
 
 
 # =========================================================================
@@ -195,16 +317,18 @@ class AnimeFilterEngine(BaseFilterEngine):
 
 class Chibi3DFilterEngine(BaseFilterEngine):
     """
-    3D Chibi / Figurine Style Engine.
-    Creates porcelain/clay smooth finishes, enhanced specular highlights,
-    warm studio rim-lighting, and soft radial depth-of-field.
+    2D Chibi / Figurine Stylization Engine.
+    Simulates a porcelain/clay figurine aesthetic using 2D image processing:
+    surface smoothing, Laplacian specular highlights, warm studio rim lighting,
+    and soft radial depth-of-field.
+    NOTE: This is a 2D image-space stylization, not genuine 3D mesh reconstruction.
     """
     def __init__(self):
         super().__init__(
             filter_id="chibi_3d",
-            name="3D Figurine",
+            name="2D Chibi Figurine Stylization",
             category="generative",
-            description="Renders subject as a stylized 3D collectible figurine with studio rim lighting."
+            description="2D image stylization simulating a collectible clay figurine with studio rim lighting."
         )
 
     def apply(self, img_rgb: np.ndarray, intensity: float = 1.0, **kwargs) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -246,9 +370,10 @@ class Chibi3DFilterEngine(BaseFilterEngine):
 
         metadata = {
             "technology": "clay_surface_diffusion_specular_laplacian_studio_lighting",
+            "stylization_type": "2d_image_processing",
             "provider": "local_cv",
             "cost_usd": 0.0,
             "identity_preservation_score": 0.83,
-            "identity_notes": "Maintains recognizable facial layout and expression with porcelain 3D figurine rendering."
+            "identity_notes": "Maintains recognizable facial layout and expression with 2D porcelain clay figurine stylization (not 3D mesh)."
         }
         return output, metadata

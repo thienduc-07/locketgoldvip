@@ -210,6 +210,12 @@ class BeardFilterEngine(BaseFilterEngine):
                 orig_c = output[:, :, c].astype(np.float32)
                 shaded = orig_c * (1.0 - effective_mask) + beard_tint[c] * effective_mask
                 output[:, :, c] = np.clip(shaded, 0, 255).astype(np.uint8)
+        else:
+            # Fallback if no frontal face detected: apply a warm barbershop tone
+            barber_tone = np.zeros_like(img_rgb, dtype=np.float32)
+            barber_tone[:, :] = [12, -4, -14]
+            toned = np.clip(img_rgb.astype(np.float32) + barber_tone * intensity, 0, 255).astype(np.uint8)
+            output = cv2.addWeighted(img_rgb, 1.0 - (0.30 * intensity), toned, (0.30 * intensity), 0)
 
         metadata = {
             "faces_detected": faces_detected,

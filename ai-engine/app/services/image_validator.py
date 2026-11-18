@@ -1,7 +1,11 @@
 import io
 from typing import Tuple
+import numpy as np
 from PIL import Image, UnidentifiedImageError
 from app.core.config import settings
+
+# Enforce DecompressionBomb protection (prevent denial-of-service via massive raster expansions)
+Image.MAX_IMAGE_PIXELS = 64 * 1024 * 1024  # 64 Megapixels maximum
 
 
 class ImageValidationError(Exception):
@@ -108,3 +112,47 @@ class ImageValidator:
                 img = img.convert("RGB")
 
         return img, detected_mime, width, height
+
+    @classmethod
+    def validate_output(cls, output_np: np.ndarray, expected_width: int = None, expected_height: int = None) -> Image.Image:
+        """
+        Validates processed image array prior to encoding and serialization:
+        1. Ensures valid numpy array of uint8 dtype.
+        2. Validates 3-channel RGB structure (H, W, 3).
+        3. Bounds check on resulting dimensions.
+        4. Validates PIL Image conversion integrity.
+
+        Returns: Decodable PIL.Image in RGB mode.
+        """
+        if output_np is None:
+            raise ImageValidationError("Filter engine returned a null/empty output array.")
+
+        if not isinstance(output_np, np.ndarray):
+            raise ImageValidationError(f"Expected numpy ndarray from filter engine, got {type(output_np)}.")
+
+        if output_np.dtype != np.uint8:
+            raise ImageValidationError(f"Invalid output image array dtype '{output_np.dtype}', expected uint8.")
+
+        if output_np.ndim != 3 or output_np.shape[2] != 3:
+            raise ImageValidationError(
+                f"Invalid output image array shape {output_np.shape}. Expected 3-channel (H, W, 3) RGB format."
+            )
+
+        h, w = output_np.shape[:2]
+        if w < settings.MIN_IMAGE_DIMENSION or h < settings.MIN_IMAGE_DIMENSION:
+            raise ImageValidationError(f"Output dimensions ({w}x{h}) are below minimum {settings.MIN_IMAGE_DIMENSION}px.")
+
+        if w > settings.MAX_IMAGE_DIMENSION or h > settings.MAX_IMAGE_DIMENSION:
+            raise ImageValidationError(f"Output dimensions ({w}x{h}) exceed maximum {settings.MAX_IMAGE_DIMENSION}px.")
+
+        try:
+            pil_out = Image.fromarray(output_np)
+            # Verify can save to memory
+            bio = io.BytesIO()
+            pil_out.save(bio, format="JPEG", quality=90)
+            if bio.tell() == 0:
+                raise ImageValidationError("Encoded output image buffer is empty.")
+        except Exception as e:
+            raise ImageValidationError(f"Failed to encode output image: {str(e)}")
+
+        return pil_out
