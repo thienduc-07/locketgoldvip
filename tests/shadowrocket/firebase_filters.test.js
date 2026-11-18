@@ -29,9 +29,10 @@ assert(parsed.templateVersion, "Expected templateVersion to be set");
 assert.strictEqual(parsed.entries.cache_ttl_seconds, "0", "Expected cache_ttl_seconds to be 0");
 assert.strictEqual(parsed.entries.client_cache_ttl_sec, "0", "Expected client_cache_ttl_sec to be 0");
 
-// Test Upsell Features Enabled for Gold features
+// Test Upsell Features Disabled (no paywall triggers)
 const upsell = JSON.parse(parsed.entries.upsell_features);
-assert.strictEqual(upsell.custom_widget_frames, true, "Expected custom_widget_frames upsell to be true");
+assert.strictEqual(upsell.custom_widget_frames, false, "Expected custom_widget_frames upsell to be false");
+assert.strictEqual(upsell.camera_filter_button, false, "Expected camera_filter_button upsell to be false");
 
 // Test Widget Frames & Event
 const fg = JSON.parse(parsed.entries.feature_gates);
@@ -84,6 +85,8 @@ assert(cfg.picker_filters.includes("cmt_locket"), "Expected cmt_locket in picker
 
 // Test Photobooth at the beginning of picker filters
 assert.strictEqual(cfg.picker_filters[0], "photobooth_4cut", "Expected photobooth_4cut to be first picker filter");
+assert(Array.isArray(cfg.sheet_filters) && cfg.sheet_filters.length > 0, "Expected sheet_filters to be present");
+assert(Array.isArray(cfg.sheetFilters) && cfg.sheetFilters.length > 0, "Expected sheetFilters to be present");
 
 // Test 30s Recording & Video Upload with Audio
 assert.strictEqual(parsed.entries.video_sound_enabled, "true", "Expected video_sound_enabled");

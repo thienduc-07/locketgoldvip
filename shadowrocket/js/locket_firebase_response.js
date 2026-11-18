@@ -182,19 +182,19 @@ var currentFrame = getActiveFrame();
                 avatar: "enabled"
             }),
             upsell_features: JSON.stringify({
-                app_icon_picker: true,
-                camera_roll: true,
-                camera_theme: true,
-                locket_views: true,
-                remove_ads: true,
-                custom_widget_frames: true,
-                camera_filter: true,
-                camera_filters: true,
-                filters: true,
-                photobooth: true,
-                photo_booth: true,
-                camera_filter_button: true,
-                photobooth_button: true
+                app_icon_picker: false,
+                camera_roll: false,
+                camera_theme: false,
+                locket_views: false,
+                remove_ads: false,
+                custom_widget_frames: false,
+                camera_filter: false,
+                camera_filters: false,
+                filters: false,
+                photobooth: false,
+                photo_booth: false,
+                camera_filter_button: false,
+                photobooth_button: false
             }),
             paywall_presentation_config: JSON.stringify({
                 uid: "paywall_testflight",
@@ -559,6 +559,31 @@ var currentFrame = getActiveFrame();
         obj.entries.customPhotoboothFilters = JSON.stringify(safeFilters);
 
         var safePickerIds = safeFilters.map(function(item) { return item.id; });
+        var pbIds = safeFilters.filter(function(f) { return f.category === "Photobooth"; }).map(function(f) { return f.id; });
+        var frameIds = safeFilters.filter(function(f) { return f.category === "Frames"; }).map(function(f) { return f.id; });
+        var safeSheetGroups = [
+            {
+                id: "group_photobooth",
+                title: { en: "Photobooth 📸", vi: "Photobooth 📸" },
+                filterIds: pbIds,
+                filter_ids: pbIds,
+                unlocked: true,
+                is_unlocked: true,
+                isUnlocked: true,
+                free: true
+            },
+            {
+                id: "group_frames",
+                title: { en: "Frames 🖼️", vi: "Khung Ảnh 🖼️" },
+                filterIds: frameIds,
+                filter_ids: frameIds,
+                unlocked: true,
+                is_unlocked: true,
+                isUnlocked: true,
+                free: true
+            }
+        ];
+
         var locketCameraFilterConfig = {
             showFilterButton: true,
             allowsCustomFilters: true,
@@ -567,6 +592,8 @@ var currentFrame = getActiveFrame();
             openSheetImmediately: false,
             pickerFilters: safePickerIds,
             picker_filters: safePickerIds,
+            sheetFilters: safeSheetGroups,
+            sheet_filters: safeSheetGroups,
             remoteFilters: safeFilters,
             remote_filters: safeFilters,
             filters: safeFilters,
