@@ -1,0 +1,14 @@
+.git
+.gitignore
+ai-engine/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+ai-engine/.pytest_cache
+ai-engine/tests
+.env
+.DS_Store
+node_modules
+dist
+.brain

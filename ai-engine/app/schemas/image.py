@@ -40,6 +40,23 @@ class FilterProcessResponse(BaseModel):
     error: Optional[str] = None
 
 
+class ProcessURLRequest(BaseModel):
+    image_url: str = Field(..., description="Public or Firebase storage URL of the input image")
+    filter_id: str = Field(..., description="Target filter ID (e.g. beard, glasses, beauty_makeup, anime, cartoon, chibi_3d)")
+    intensity: float = Field(0.85, ge=0.0, le=1.0, description="Effect intensity")
+    preview_mode: bool = Field(False, description="Preview downscale mode")
+
+
+class ProcessURLResponse(BaseModel):
+    status: str = Field(..., description="'success' or 'failed'")
+    session_id: str = Field(..., description="Unique processing session UUID")
+    filter_id: str = Field(..., description="Applied filter identifier")
+    output_url: Optional[str] = Field(None, description="Direct URL to fetch processed JPEG")
+    dimensions: Optional[ImageDimensions] = None
+    metrics: ProcessingMetrics
+    error: Optional[str] = None
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str

@@ -158,3 +158,398 @@ def test_cors_configured_origins(client):
     resp = client.options("/api/v1/filters/process", headers=headers)
     assert resp.status_code == 200
     assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+
+def test_api_process_url_and_fetch_output(client, sample_portrait_bytes, monkeypatch):
+    """Verify POST /api/v1/filters/process-url downloads, processes, and serves via GET /output/{id}.jpg."""
+    import httpx
+
+    class MockStreamResponse:
+        status_code = 200
+        headers = {"content-type": "image/jpeg", "content-length": str(len(sample_portrait_bytes))}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield sample_portrait_bytes
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/test.jpg?alt=media",
+        "filter_id": "looks_maxxing",
+        "intensity": 0.85
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert data["filter_id"] == "beauty_makeup"
+    assert data["output_url"] is not None
+    assert "/api/v1/filters/output/" in data["output_url"]
+
+    # Verify fetching the output JPEG
+    output_resp = client.get(f"/api/v1/filters/output/{data['session_id']}.jpg")
+    assert output_resp.status_code == 200
+    assert output_resp.headers["content-type"] == "image/jpeg"
+    assert "public, max-age=600" in output_resp.headers["cache-control"]
+    assert output_resp.content.startswith(b"\xff\xd8\xff")  # JPEG SOI marker
+
+
+def test_api_process_url_invalid_url(client):
+    """Verify POST /api/v1/filters/process-url rejects invalid URLs."""
+    payload = {
+        "image_url": "ftp://bad-url",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 400
+
+
+def test_api_process_url_download_failure(client, monkeypatch):
+    """Verify POST /api/v1/filters/process-url handles remote fetch 404."""
+    import httpx
+
+    class Mock404StreamResponse:
+        status_code = 404
+        headers = {}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield b"Not Found"
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return Mock404StreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/missing.jpg",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 400
+
+
+def test_api_process_url_ssrf_metadata_blocked(client):
+    """Verify SSRF protection strictly blocks AWS/GCP cloud metadata IP."""
+    payload = {
+        "image_url": "http://169.254.169.254/latest/meta-data/",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+    assert "forbidden" in resp.json()["detail"].lower()
+
+
+def test_api_process_url_ssrf_localhost_blocked(client):
+    """Verify SSRF protection strictly blocks loopback 127.0.0.1."""
+    payload = {
+        "image_url": "http://127.0.0.1:8000/internal",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+    assert "forbidden" in resp.json()["detail"].lower()
+
+
+def test_api_process_url_ssrf_metadata_domain_blocked(client):
+    """Verify SSRF protection strictly blocks metadata.google.internal."""
+    payload = {
+        "image_url": "http://metadata.google.internal/computeMetadata/v1/",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+
+
+def test_api_process_url_oversized_image(client, monkeypatch):
+    """Verify POST /api/v1/filters/process-url rejects downloads exceeding 10MB."""
+    import httpx
+
+    class MockOversizedStreamResponse:
+        status_code = 200
+        headers = {"content-type": "image/jpeg", "content-length": str(15 * 1024 * 1024)}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield b"x" * (11 * 1024 * 1024)
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockOversizedStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/huge.jpg",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 413
+
+
+def test_api_process_url_invalid_mime_type(client, monkeypatch):
+    """Verify POST /api/v1/filters/process-url rejects non-image binaries."""
+    import httpx
+
+    class MockHTMLStreamResponse:
+        status_code = 200
+        headers = {"content-type": "text/html", "content-length": "100"}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield b"<html><body>Not an image</body></html>"
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockHTMLStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/file.html",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 415
+
+
+def test_api_process_url_auth_enforcement(client, sample_portrait_bytes, monkeypatch):
+    """Verify X-API-Key is enforced when AI_ENGINE_API_KEY is configured in env."""
+    import httpx
+
+    class MockStreamResponse:
+        status_code = 200
+        headers = {"content-type": "image/jpeg", "content-length": str(len(sample_portrait_bytes))}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield sample_portrait_bytes
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+    monkeypatch.setenv("AI_ENGINE_API_KEY", "super-secret-key-123")
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/test.jpg",
+        "filter_id": "beard"
+    }
+
+    # Without header -> 401
+    resp_no_auth = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp_no_auth.status_code == 401
+
+    # With bad header -> 401
+    resp_bad_auth = client.post("/api/v1/filters/process-url", json=payload, headers={"x-api-key": "wrong"})
+    assert resp_bad_auth.status_code == 401
+
+    # With good header -> 200
+    resp_ok = client.post("/api/v1/filters/process-url", json=payload, headers={"x-api-key": "super-secret-key-123"})
+    assert resp_ok.status_code == 200
+
+
+def test_api_output_expired_status_410(client):
+    """Verify GET /api/v1/filters/output/{id}.jpg returns 410 Gone for expired session."""
+    from app.api.filters import _IMAGE_CACHE
+    import time
+
+    session_id = "test-expired-session"
+    _IMAGE_CACHE[session_id] = (b"\xff\xd8\xff...", time.time() - 100.0)  # Expired 100s ago
+
+    resp = client.get(f"/api/v1/filters/output/{session_id}.jpg")
+    assert resp.status_code == 410
+    assert "expired" in resp.json()["detail"].lower()
+
+
+
+def test_api_output_not_found(client):
+    """Verify GET /api/v1/filters/output/{id}.jpg returns 404 for unknown session."""
+    resp = client.get("/api/v1/filters/output/nonexistent-session-id.jpg")
+    assert resp.status_code == 404
+
+
+def test_api_process_url_ipv4_mapped_ipv6_loopback(client):
+    """Verify POST /api/v1/filters/process-url rejects IPv4-mapped IPv6 loopback (::ffff:127.0.0.1)."""
+    payload = {
+        "image_url": "http://[::ffff:127.0.0.1]/secret.jpg",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+    assert "loopback" in resp.json()["detail"].lower()
+
+
+def test_api_process_url_ipv4_mapped_ipv6_metadata(client):
+    """Verify POST /api/v1/filters/process-url rejects IPv4-mapped IPv6 cloud metadata (::ffff:169.254.169.254)."""
+    payload = {
+        "image_url": "http://[::ffff:169.254.169.254]/latest/meta-data/",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+    assert "metadata" in resp.json()["detail"].lower() or "link-local" in resp.json()["detail"].lower()
+
+
+def test_api_process_url_dns_rebinding_socket_intercept(client, monkeypatch):
+    """Verify connect-time socket IP inspection catches DNS rebinding / TOCTOU IP swap."""
+    import httpx
+
+    class MockNetworkStream:
+        def get_extra_info(self, info_type):
+            if info_type == "server_addr":
+                # Simulated socket connected to loopback IP post-DNS resolution
+                return ("127.0.0.1", 80)
+            return None
+
+    class MockReboundStreamResponse:
+        status_code = 200
+        headers = {"content-type": "image/jpeg", "content-length": "100"}
+        extensions = {"network_stream": MockNetworkStream()}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield b"\xff\xd8\xff" + b"x" * 100
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockReboundStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/rebound.jpg",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+    assert "dns rebinding defense" in resp.json()["detail"].lower()
+
+
+def test_api_process_url_redirect_chain_to_internal_ip(client, monkeypatch):
+    """Verify HTTP redirect chain pointing to internal/private IP (10.0.0.1) is blocked."""
+    import httpx
+
+    class MockRedirectStreamResponse:
+        status_code = 302
+        headers = {"Location": "http://10.0.0.1/internal-admin.jpg"}
+        extensions = {}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield b""
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockRedirectStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/redirect.jpg",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 403
+    assert "private network" in resp.json()["detail"].lower()
+
+
+def test_api_process_url_redirect_loop(client, monkeypatch):
+    """Verify HTTP redirect loop (>3 hops) is aborted with 400 Bad Request."""
+    import httpx
+
+    class MockLoopStreamResponse:
+        status_code = 302
+        headers = {"Location": "https://firebasestorage.googleapis.com/v0/b/locket/o/loop.jpg"}
+        extensions = {}
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        async def aiter_bytes(self, chunk_size=65536):
+            yield b""
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+        def stream(self, method, url):
+            return MockLoopStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", MockAsyncClient)
+
+    payload = {
+        "image_url": "https://firebasestorage.googleapis.com/v0/b/locket/o/loop.jpg",
+        "filter_id": "beard"
+    }
+    resp = client.post("/api/v1/filters/process-url", json=payload)
+    assert resp.status_code == 400
+    assert "too many redirects" in resp.json()["detail"].lower()
+
+

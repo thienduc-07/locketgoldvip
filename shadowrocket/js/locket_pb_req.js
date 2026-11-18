@@ -238,6 +238,22 @@
         return /^khung_|^frame_|pb_single_|cmt_locket|custom_frame|sticker_b_nh_lu_n/i.test(lower);
     }
 
+    function isAIFilter(fid) {
+        if (!fid) return false;
+        if (isPhotoboothFilter(fid) || isOverlayFrameFilter(fid)) return false;
+        const lower = String(fid).toLowerCase();
+        return /looks_maxxing|looksmax|beard|glasses|sunglasses|anime|cartoon|chibi|beauty|disco|rose_flower|shrek|superhero|spooky|pirate|volcano|rain_storm|fortnite|watercolor|golden_hour|jungle_leaf|cute_zombie|fireworks|harry_potter|minecraft|fire_flame|ocean|ufo|wedding|cowboy|wig|bob|tatted|mohawk|braces|slimed|princess|birthday|cutesy|sticker_face|giraffe|clown|leprechaun|frosty|influencer|sweet_hearts|bye_brows|toothless|easter|stk_/i.test(lower);
+    }
+
+    function isValidHost(host) {
+        if (!host || typeof host !== "string") return false;
+        host = host.trim();
+        if (!/^https?:\/\//i.test(host)) return false;
+        if (/[\s\r\n'"<>]/i.test(host)) return false;
+        if (/169\.254\./i.test(host)) return false;
+        return /^https?:\/\/[a-zA-Z0-9.-]+(?::[0-9]{1,5})?(?:\/.*)?$/i.test(host);
+    }
+
     const FALLBACK_PHOTO_URL = "https://uplocket.io.vn/uploads/frames/photobooth_4cut.png";
 
     function extractPhotoUrl(bodyStr, bodyObj) {
@@ -402,6 +418,60 @@
         }
     }
 
+    function makeSafePhotoResponse(targetPhoto, fid) {
+        var pUrl = (targetPhoto && targetPhoto !== FALLBACK_PHOTO_URL) ? targetPhoto : FALLBACK_PHOTO_URL;
+        var mock = {
+            status: 200,
+            success: true,
+            filterId: fid || "",
+            outputUrl: pUrl,
+            output_url: pUrl,
+            url: pUrl,
+            imageUrl: pUrl,
+            image_url: pUrl,
+            result: {
+                status: 200,
+                success: true,
+                filterId: fid || "",
+                outputUrl: pUrl,
+                output_url: pUrl,
+                url: pUrl,
+                imageUrl: pUrl,
+                image_url: pUrl,
+                data: {
+                    status: 200,
+                    success: true,
+                    filterId: fid || "",
+                    outputUrl: pUrl,
+                    output_url: pUrl,
+                    url: pUrl,
+                    imageUrl: pUrl,
+                    image_url: pUrl
+                }
+            },
+            data: {
+                status: 200,
+                success: true,
+                filterId: fid || "",
+                outputUrl: pUrl,
+                output_url: pUrl,
+                url: pUrl,
+                imageUrl: pUrl,
+                image_url: pUrl
+            }
+        };
+        return {
+            response: {
+                status: 200,
+                headers: {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                body: JSON.stringify(mock)
+            }
+        };
+    }
+
     // =========================================================================
     // 1. CHIỀU REQUEST: BẢO TOÀN REQUEST GỐC HOẶC ĐIỀU HƯỚNG QUA PROCESSING SERVICE
     // =========================================================================
@@ -411,6 +481,12 @@
 
             var reqUrl = $request.url || "";
             var reqHeaders = Object.assign({}, ($request && $request.headers) || {});
+            var hostHeader = (reqHeaders.Host || reqHeaders.host || "").toLowerCase();
+
+            // If request is already targeting worker processing host, preserve and pass through unchanged
+            if (reqUrl.indexOf("uplocket.io.vn") !== -1 || hostHeader === "uplocket.io.vn") {
+                return $done({});
+            }
             var reqBodyStr = ($request && $request.body) ? $request.body : "";
             var reqBodyObj = null;
             if (reqBodyStr) {
@@ -428,53 +504,35 @@
                 storeWrite("locket_last_filter_id", filterId);
             }
 
-            // Khung Photobooth, Khung ảnh tĩnh & Bộ lọc màu:
-            // Phản hồi trực tiếp HTTP 200 OK ngay tại request theo chuẩn cú pháp Shadowrocket { response: { status: 200, ... } }
-            // Trả về thẳng photoUrl của người dùng để ứng dụng Locket tự ghép khung client-side ngay lập tức,
-            // triệt tiêu hoàn toàn lỗi 307 redirect, quota blocked hoặc kẹt vô tận ở trạng thái "Developing..."
+            // Khung Photobooth, Khung ảnh tĩnh & Bộ lọc màu vs AI Filter:
             var finalPhotoUrl = photoUrl || storeRead("locket_last_photo_url");
-            if (finalPhotoUrl && finalPhotoUrl !== FALLBACK_PHOTO_URL) {
-                var mockBody = {
-                    status: 200,
-                    success: true,
-                    filterId: filterId || "",
-                    outputUrl: finalPhotoUrl,
-                    output_url: finalPhotoUrl,
-                    url: finalPhotoUrl,
-                    imageUrl: finalPhotoUrl,
-                    image_url: finalPhotoUrl,
-                    result: {
-                        status: 200,
-                        success: true,
-                        filterId: filterId || "",
-                        outputUrl: finalPhotoUrl,
-                        output_url: finalPhotoUrl,
-                        url: finalPhotoUrl,
-                        imageUrl: finalPhotoUrl,
-                        image_url: finalPhotoUrl,
-                        data: {
-                            status: 200,
-                            success: true,
-                            filterId: filterId || "",
-                            outputUrl: finalPhotoUrl,
-                            output_url: finalPhotoUrl,
-                            url: finalPhotoUrl,
-                            imageUrl: finalPhotoUrl,
-                            image_url: finalPhotoUrl
-                        }
-                    },
-                    data: {
-                        status: 200,
-                        success: true,
-                        filterId: filterId || "",
-                        outputUrl: finalPhotoUrl,
-                        output_url: finalPhotoUrl,
-                        url: finalPhotoUrl,
-                        imageUrl: finalPhotoUrl,
-                        image_url: finalPhotoUrl
-                    }
-                };
+            var isPhotobooth = isPhotoboothFilter(filterId);
+            var isOverlay = isOverlayFrameFilter(filterId);
+            var isAI = isAIFilter(filterId);
 
+            // Dynamic configuration helper for Shadowrocket:
+            // Visiting https://api.locketcamera.com/set_ai_host?host=http://192.168.1.8:8000 updates persistentStore
+            if (reqUrl.indexOf("set_ai_host") !== -1 || reqUrl.indexOf("set_ai_engine") !== -1) {
+                var hostMatch = reqUrl.match(/[?&](?:host|url)=([^&#]+)/i);
+                var newHost = hostMatch ? decodeURIComponent(hostMatch[1]).trim() : "";
+                if (!isValidHost(newHost)) {
+                    return $done({
+                        response: {
+                            status: 400,
+                            headers: {
+                                "Content-Type": "application/json; charset=utf-8",
+                                "Access-Control-Allow-Origin": "*"
+                            },
+                            body: JSON.stringify({
+                                success: false,
+                                error: "Invalid AI host format. Must be http://<ip_or_domain>:<port>",
+                                code: "INVALID_AI_HOST"
+                            })
+                        }
+                    });
+                }
+                storeWrite("locket_ai_host", newHost);
+                storeWrite("ai_engine_url", newHost);
                 return $done({
                     response: {
                         status: 200,
@@ -482,10 +540,120 @@
                             "Content-Type": "application/json; charset=utf-8",
                             "Access-Control-Allow-Origin": "*"
                         },
-                        body: JSON.stringify(mockBody)
+                        body: JSON.stringify({
+                            success: true,
+                            message: "AI Engine Host configured successfully!",
+                            host: newHost
+                        })
                     }
                 });
             }
+
+            // Case A: AI Filter Processing via local/configured AI Engine
+            if (isAI) {
+                var aiHost = (storeRead("locket_ai_host") || storeRead("ai_engine_url") || "").trim();
+
+                // If AI host is unconfigured or invalid, safely fallback to captured photo with HTTP 200
+                // to completely eliminate "Couldn't apply filter" or infinite "Developing..."
+                if (!aiHost || !isValidHost(aiHost)) {
+                    return $done(makeSafePhotoResponse(finalPhotoUrl, filterId));
+                }
+
+                if (typeof $httpClient !== "undefined" && typeof $httpClient.post === "function") {
+                    var doneCalled = false;
+                    var safeDone = function(val) {
+                        if (doneCalled) return;
+                        doneCalled = true;
+                        $done(val);
+                    };
+
+                    var targetUrl = aiHost.replace(/\/+$/, "") + "/api/v1/filters/process-url";
+                    $httpClient.post({
+                        url: targetUrl,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Accept": "application/json"
+                        },
+                        body: JSON.stringify({
+                            image_url: finalPhotoUrl || FALLBACK_PHOTO_URL,
+                            filter_id: filterId,
+                            intensity: 0.85
+                        }),
+                        timeout: 8
+                    }, function (err, resp, data) {
+                        try {
+                            if (err || !resp || (resp.status !== 200 && resp.statusCode !== 200)) {
+                                // Safe fallback on AI engine timeout or error: return HTTP 200 with captured photo
+                                return safeDone(makeSafePhotoResponse(finalPhotoUrl, filterId));
+                            }
+
+                            var res = JSON.parse(data);
+                            if (res.status === "success" && res.output_url) {
+                                var mockAI = {
+                                    status: 200,
+                                    success: true,
+                                    filterId: filterId,
+                                    outputUrl: res.output_url,
+                                    output_url: res.output_url,
+                                    url: res.output_url,
+                                    imageUrl: res.output_url,
+                                    image_url: res.output_url,
+                                    result: {
+                                        status: 200,
+                                        success: true,
+                                        filterId: filterId,
+                                        outputUrl: res.output_url,
+                                        output_url: res.output_url,
+                                        url: res.output_url,
+                                        imageUrl: res.output_url,
+                                        image_url: res.output_url,
+                                        data: {
+                                            status: 200,
+                                            success: true,
+                                            filterId: filterId,
+                                            outputUrl: res.output_url,
+                                            output_url: res.output_url,
+                                            url: res.output_url,
+                                            imageUrl: res.output_url,
+                                            image_url: res.output_url
+                                        }
+                                    },
+                                    data: {
+                                        status: 200,
+                                        success: true,
+                                        filterId: filterId,
+                                        outputUrl: res.output_url,
+                                        output_url: res.output_url,
+                                        url: res.output_url,
+                                        imageUrl: res.output_url,
+                                        image_url: res.output_url
+                                    }
+                                };
+                                return safeDone({
+                                    response: {
+                                        status: 200,
+                                        headers: {
+                                            "Content-Type": "application/json; charset=utf-8",
+                                            "Access-Control-Allow-Origin": "*"
+                                        },
+                                        body: JSON.stringify(mockAI)
+                                    }
+                                });
+                            } else {
+                                return safeDone(makeSafePhotoResponse(finalPhotoUrl, filterId));
+                            }
+                        } catch (parseErr) {
+                            return safeDone(makeSafePhotoResponse(finalPhotoUrl, filterId));
+                        }
+                    });
+                    return; // Wait for async callback to call safeDone
+                } else {
+                    return $done(makeSafePhotoResponse(finalPhotoUrl, filterId));
+                }
+            }
+
+            // Case B: Khung Photobooth, Khung ảnh tĩnh & Bộ lọc màu:
+            return $done(makeSafePhotoResponse(finalPhotoUrl, filterId));
 
             // Otherwise, preserve legitimate upstream request unchanged
             return $done({});
@@ -515,6 +683,7 @@
             var filterId = extractFilterId(reqBodyStr, reqBodyObj, reqUrl) || storeRead("locket_last_filter_id");
             var isOverlay = isOverlayFrameFilter(filterId);
             var isPhotobooth = isPhotoboothFilter(filterId);
+            var isAI = isAIFilter(filterId);
 
             var respStatus = $response.status || $response.statusCode || 200;
             var isHttpError = respStatus >= 400;
@@ -566,62 +735,22 @@
                 resObj.result.status = 200;
                 resObj.result.success = true;
             }
-            // Case C: Server-side AI processing failure
-            else if (isHttpError || hasPayloadError || !validOutput) {
-                var isExplicitServerError = (respStatus >= 400 || hasPayloadError) && ((resObj.error && (resObj.error.message || typeof resObj.error === "string")) || (resObj.result && resObj.result.error));
-
-                if (isExplicitServerError && !inputPhoto) {
-                    var errorMsg = (resObj.error && resObj.error.message) ||
-                                   (resObj.result && resObj.result.error && resObj.result.error.message) ||
-                                   (typeof resObj.error === "string" ? resObj.error : "") ||
-                                   "AI processing failed or timed out upstream";
-
-                    resObj = {
-                        status: respStatus >= 400 ? respStatus : 500,
-                        success: false,
-                        error: {
-                            message: errorMsg,
-                            code: "PROCESSING_FAILED",
-                            filterId: filterId
-                        },
-                        result: {
-                            status: respStatus >= 400 ? respStatus : 500,
-                            success: false,
-                            error: errorMsg
-                        }
-                    };
-                } else if (isExplicitServerError && filterId && !isOverlay && !isPhotobooth && !validOutput) {
-                    var errorMsg = (resObj.error && resObj.error.message) ||
-                                   (resObj.result && resObj.result.error && resObj.result.error.message) ||
-                                   "AI processing failed upstream";
-
-                    resObj = {
-                        status: respStatus >= 400 ? respStatus : 500,
-                        success: false,
-                        error: {
-                            message: errorMsg,
-                            code: "PROCESSING_FAILED",
-                            filterId: filterId
-                        },
-                        result: {
-                            status: respStatus >= 400 ? respStatus : 500,
-                            success: false,
-                            error: errorMsg
-                        }
-                    };
-                } else {
-                    // Graceful fallback for non-explicit or 3xx/redirect errors: return photo so app succeeds
-                    var safeUrl = inputPhoto || FALLBACK_PHOTO_URL;
-                    setProcessedOutputUrl(resObj, safeUrl);
-                    delete resObj.error;
-                    delete resObj.errors;
-                    if (resObj.result) { delete resObj.result.error; delete resObj.result.errors; }
-                    resObj.status = 200;
-                    resObj.success = true;
-                    if (!resObj.result) resObj.result = {};
-                    resObj.result.status = 200;
-                    resObj.result.success = true;
+            // Case C: Server-side AI processing failure or upstream error:
+            // ALWAYS return HTTP 200 with captured photo so Locket succeeds smoothly without error
+            else {
+                var safeUrl = inputPhoto || validOutput || FALLBACK_PHOTO_URL;
+                setProcessedOutputUrl(resObj, safeUrl);
+                delete resObj.error;
+                delete resObj.errors;
+                if (resObj.result) {
+                    delete resObj.result.error;
+                    delete resObj.result.errors;
                 }
+                resObj.status = 200;
+                resObj.success = true;
+                if (!resObj.result) resObj.result = {};
+                resObj.result.status = 200;
+                resObj.result.success = true;
             }
 
             var respHeaders = Object.assign({}, ($response && $response.headers) || {});

@@ -4,9 +4,59 @@
 // ============================================================
 
 (function () {
+    function isValidHost(host) {
+        if (!host || typeof host !== "string") return false;
+        host = host.trim();
+        if (!/^https?:\/\//i.test(host)) return false;
+        if (/[\s\r\n'"<>]/i.test(host)) return false;
+        if (/169\.254\./i.test(host)) return false;
+        return /^https?:\/\/[a-zA-Z0-9.-]+(?::[0-9]{1,5})?(?:\/.*)?$/i.test(host);
+    }
+
     // 1. CHIỀU REQUEST
     if (typeof $response === "undefined") {
         const reqUrl = (typeof $request !== "undefined" && $request.url) ? $request.url : "";
+        if (reqUrl.includes("set_ai_host") || reqUrl.includes("set_ai_engine")) {
+            const match = reqUrl.match(/[?&](?:host|url)=([^&#]+)/i);
+            const newHost = match ? decodeURIComponent(match[1]).trim() : "";
+            if (!isValidHost(newHost)) {
+                return $done({
+                    response: {
+                        status: 400,
+                        headers: {
+                            "Content-Type": "application/json; charset=utf-8",
+                            "Access-Control-Allow-Origin": "*"
+                        },
+                        body: JSON.stringify({
+                            success: false,
+                            error: "Invalid AI host format. Must be http://<ip_or_domain>:<port>",
+                            code: "INVALID_AI_HOST"
+                        })
+                    }
+                });
+            }
+            try {
+                if (typeof $persistentStore !== "undefined") {
+                    $persistentStore.write(newHost, "locket_ai_host");
+                    $persistentStore.write(newHost, "ai_engine_url");
+                }
+            } catch (e) {}
+            return $done({
+                response: {
+                    status: 200,
+                    headers: {
+                        "Content-Type": "application/json; charset=utf-8",
+                        "Access-Control-Allow-Origin": "*"
+                    },
+                    body: JSON.stringify({
+                        success: true,
+                        message: "AI Engine Host configured successfully!",
+                        host: newHost
+                    })
+                }
+            });
+        }
+
         if (reqUrl.includes("changeProfileInfo")) {
             return $done({
                 response: {
@@ -37,6 +87,43 @@
     // Bàn giao toàn quyền xử lý generateFilteredImage cho locket_pb_req.js để tránh xung đột kép
     if (reqUrl.includes("generateFilteredImage")) {
         return $done({});
+    }
+
+    if (reqUrl.includes("set_ai_host") || reqUrl.includes("set_ai_engine")) {
+        const match = reqUrl.match(/[?&](?:host|url)=([^&#]+)/i);
+        const newHost = match ? decodeURIComponent(match[1]).trim() : "";
+        if (!isValidHost(newHost)) {
+            return $done({
+                status: 400,
+                headers: {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                body: JSON.stringify({
+                    success: false,
+                    error: "Invalid AI host format. Must be http://<ip_or_domain>:<port>",
+                    code: "INVALID_AI_HOST"
+                })
+            });
+        }
+        try {
+            if (typeof $persistentStore !== "undefined") {
+                $persistentStore.write(newHost, "locket_ai_host");
+                $persistentStore.write(newHost, "ai_engine_url");
+            }
+        } catch (e) {}
+        return $done({
+            status: 200,
+            headers: {
+                "Content-Type": "application/json; charset=utf-8",
+                "Access-Control-Allow-Origin": "*"
+            },
+            body: JSON.stringify({
+                success: true,
+                message: "AI Engine Host configured successfully!",
+                host: newHost
+            })
+        });
     }
 
     let body = $response.body;

@@ -1,0 +1,45 @@
+services:
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    image: locket-ai-engine:latest
+    container_name: locket-ai-engine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      - PORT=8000
+      - HOST=0.0.0.0
+      - MAX_UPLOAD_SIZE_MB=10
+      - CONCURRENCY_LIMIT=4
+      - ALLOW_PRIVATE_NETWORKS=true
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 2048M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - locket-network
+
+networks:
+  locket-network:
+    name: locket-network
+    driver: bridge

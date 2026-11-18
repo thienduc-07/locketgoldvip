@@ -231,11 +231,12 @@ test('Group C - Response: handles nested response objects (result.data.outputUrl
   assert.strictEqual(resBody.result.outputUrl, deepOutput);
 });
 
-test('Group C - Response: reports explicit error for failed server-side AI processing instead of disguising as fake 200', () => {
+test('Group C - Response: gracefully falls back to captured photo with HTTP 200 on server-side processing error to prevent Developing hang', () => {
+  const photoUrl = 'https://test.com/in.jpg';
   const result = runPBScript({
     $request: {
       url: 'https://uplocket.io.vn/generateFilteredImage',
-      body: JSON.stringify({ data: { filterId: 'looks_maxxing', imageUrl: 'https://test.com/in.jpg' } })
+      body: JSON.stringify({ data: { filterId: 'looks_maxxing', imageUrl: photoUrl } })
     },
     $response: {
       status: 500,
@@ -247,18 +248,18 @@ test('Group C - Response: reports explicit error for failed server-side AI proce
   });
 
   assert(result, 'Expected $done to be called');
-  assert.strictEqual(result.status, 500, 'Must reflect error status');
+  assert.strictEqual(result.status, 200, 'Must return safe 200 fallback');
   const resBody = JSON.parse(result.body);
-  assert.strictEqual(resBody.success, false);
-  assert(resBody.error.message.includes('capacity exceeded'));
-  assert.strictEqual(resBody.outputUrl, undefined, 'Must not return fake outputUrl on failure');
+  assert.strictEqual(resBody.success, true);
+  assert.strictEqual(resBody.outputUrl, photoUrl, 'Must return captured photo on error');
 });
 
-test('Group C - Response: handles timeout response (504 Gateway Timeout) cleanly', () => {
+test('Group C - Response: handles timeout response (504 Gateway Timeout) cleanly with safe photo fallback', () => {
+  const photoUrl = 'https://test.com/in.jpg';
   const result = runPBScript({
     $request: {
       url: 'https://uplocket.io.vn/generateFilteredImage',
-      body: JSON.stringify({ data: { filterId: 'beard' } })
+      body: JSON.stringify({ data: { filterId: 'beard', imageUrl: photoUrl } })
     },
     $response: {
       status: 504,
@@ -268,9 +269,10 @@ test('Group C - Response: handles timeout response (504 Gateway Timeout) cleanly
   });
 
   assert(result, 'Expected $done to be called');
-  assert.strictEqual(result.status, 504);
+  assert.strictEqual(result.status, 200);
   const resBody = JSON.parse(result.body);
-  assert.strictEqual(resBody.success, false);
+  assert.strictEqual(resBody.success, true);
+  assert.strictEqual(resBody.outputUrl, photoUrl);
 });
 
 // =========================================================================
@@ -443,3 +445,313 @@ test('Group E - Regression: Request mode persists photoUrl and filterId to persi
   assert.strictEqual(store.locket_last_photo_url, photoUrl, 'photoUrl must be written to persistent store');
   assert.strictEqual(store.locket_last_filter_id, 'photobooth_cute', 'filterId must be written to persistent store');
 });
+
+// =========================================================================
+// TEST GROUP F: AI FILTER RECOVERY & DYNAMIC CONFIGURATION
+// =========================================================================
+
+test('Group F - AI Filter Recovery: returns safe HTTP 200 fallback with captured photo when AI host is not set', () => {
+  const store = {};
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/selfie.jpg';
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'looks_maxxing'
+        }
+      })
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200, 'Must return safe 200 fallback');
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.outputUrl, photoUrl);
+  assert.strictEqual(body.success, true);
+});
+
+test('Group F - AI Filter Recovery: calls $httpClient.post and returns HTTP 200 with AI outputUrl when AI Engine succeeds', () => {
+  const store = { locket_ai_host: 'http://192.168.1.8:8000' };
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/selfie.jpg';
+  const aiOutput = 'http://192.168.1.8:8000/api/v1/filters/output/session-123.jpg';
+  let calledUrl = '';
+  let calledBody = null;
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $httpClient: {
+      post: (options, callback) => {
+        calledUrl = options.url;
+        calledBody = JSON.parse(options.body);
+        callback(null, { status: 200 }, JSON.stringify({
+          status: 'success',
+          session_id: 'session-123',
+          output_url: aiOutput
+        }));
+      }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'beard'
+        }
+      })
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(calledUrl, 'http://192.168.1.8:8000/api/v1/filters/process-url');
+  assert.strictEqual(calledBody.image_url, photoUrl);
+  assert.strictEqual(calledBody.filter_id, 'beard');
+  assert.strictEqual(result.response.status, 200);
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.outputUrl, aiOutput);
+  assert.strictEqual(body.result.outputUrl, aiOutput);
+  assert.strictEqual(body.data.outputUrl, aiOutput);
+});
+
+test('Group F - AI Filter Recovery: returns safe HTTP 200 fallback with captured photo when AI Engine returns 500', () => {
+  const store = { locket_ai_host: 'http://192.168.1.8:8000' };
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/selfie.jpg';
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $httpClient: {
+      post: (options, callback) => {
+        callback(null, { status: 500 }, JSON.stringify({
+          detail: 'Model GPU out of memory'
+        }));
+      }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'anime'
+        }
+      })
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200);
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.outputUrl, photoUrl);
+  assert.strictEqual(body.success, true);
+});
+
+test('Group F - AI Filter Recovery: returns safe HTTP 200 fallback with captured photo when $httpClient encounters network timeout/error', () => {
+  const store = { locket_ai_host: 'http://192.168.1.8:8000' };
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/selfie.jpg';
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $httpClient: {
+      post: (options, callback) => {
+        callback(new Error('Connection timed out to 192.168.1.8:8000'), null, null);
+      }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'chibi_3d'
+        }
+      })
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200);
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.outputUrl, photoUrl);
+  assert.strictEqual(body.success, true);
+});
+
+test('Group F - Dynamic Config: visiting set_ai_host in locket_pb_req updates persistentStore', () => {
+  const store = {};
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://api.locketcamera.com/set_ai_host?host=http%3A%2F%2F192.168.1.8%3A8000'
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200);
+  assert.strictEqual(store.locket_ai_host, 'http://192.168.1.8:8000');
+  assert.strictEqual(store.ai_engine_url, 'http://192.168.1.8:8000');
+});
+
+test('Group F - Dynamic Config: visiting set_ai_host in locket_filter_response updates persistentStore', () => {
+  const store = {};
+  const result = runFilterScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://api.locketcamera.com/set_ai_host?host=http%3A%2F%2F192.168.1.8%3A8000'
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200);
+  assert.strictEqual(store.locket_ai_host, 'http://192.168.1.8:8000');
+});
+
+test('Group F - Security: rejects invalid AI_HOST with cloud metadata (169.254.169.254)', () => {
+  const store = {};
+  const result = runFilterScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://api.locketcamera.com/set_ai_host?host=http%3A%2F%2F169.254.169.254%3A8000'
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 400);
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.code, 'INVALID_AI_HOST');
+  assert.strictEqual(store.locket_ai_host, undefined, 'Invalid host must not be saved');
+});
+
+test('Group F - Security: rejects invalid AI_HOST with non-http scheme (ftp://, javascript:)', () => {
+  const store = {};
+  const result = runFilterScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://api.locketcamera.com/set_ai_host?host=javascript%3Aalert(1)'
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 400);
+  assert.strictEqual(store.locket_ai_host, undefined);
+});
+
+test('Group F - Security: returns safe HTTP 200 fallback with captured photo when stored host is corrupted', () => {
+  const store = { locket_ai_host: 'http://169.254.169.254:8000' };
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/selfie.jpg';
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'beard'
+        }
+      })
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200);
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.outputUrl, photoUrl);
+  assert.strictEqual(body.success, true);
+});
+
+test('Group F - Reliability: safeDone guarantees $done is called exactly once despite duplicate callback invocations', () => {
+  const store = { locket_ai_host: 'http://192.168.1.8:8000' };
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/selfie.jpg';
+  let doneCount = 0;
+
+  let capturedDone = null;
+  const context = {
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $httpClient: {
+      post: (options, callback) => {
+        // Deliberately trigger callback multiple times
+        callback(null, { status: 200 }, JSON.stringify({ status: 'success', output_url: 'http://out1.jpg' }));
+        callback(null, { status: 200 }, JSON.stringify({ status: 'success', output_url: 'http://out2.jpg' }));
+      }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'glasses'
+        }
+      })
+    },
+    $done: (res) => {
+      doneCount++;
+      capturedDone = res;
+    },
+    console: console
+  };
+
+  const pbScriptCode = require('fs').readFileSync('shadowrocket/js/locket_pb_req.js', 'utf8');
+  require('vm').runInNewContext(pbScriptCode, context);
+
+  assert.strictEqual(doneCount, 1, '$done must be invoked strictly once');
+  assert(capturedDone && capturedDone.response);
+  assert.strictEqual(capturedDone.response.status, 200);
+});
+
+test('Group F - Photobooth: Photobooth 4cut continues to return instant 200 with captured photo even if AI host is unconfigured', () => {
+  const store = {}; // No AI host configured
+  const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/locket/o/captured_photobooth.jpg';
+
+  const result = runPBScript({
+    $persistentStore: {
+      read: (k) => store[k] || '',
+      write: (v, k) => { store[k] = v; }
+    },
+    $request: {
+      url: 'https://us-central1-locket-4252a.cloudfunctions.net/generateFilteredImage',
+      body: JSON.stringify({
+        data: {
+          imageUrl: photoUrl,
+          filterId: 'photobooth_4cut'
+        }
+      })
+    }
+  });
+
+  assert(result && result.response, 'Expected response object');
+  assert.strictEqual(result.response.status, 200, 'Photobooth must succeed independently of AI host');
+  const body = JSON.parse(result.response.body);
+  assert.strictEqual(body.outputUrl, photoUrl);
+  assert.strictEqual(body.success, true);
+});
+
+
