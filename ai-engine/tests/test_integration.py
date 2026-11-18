@@ -106,10 +106,55 @@ def test_api_invalid_filter_id(client, sample_portrait_bytes):
 
 
 def test_api_corrupted_file(client, corrupted_image_bytes):
-    """Verify corrupted image upload returns HTTP 400."""
+    """Verify corrupted image upload returns HTTP 422 Unprocessable Entity."""
     files = {"file": ("corrupt.jpg", corrupted_image_bytes, "image/jpeg")}
     data = {"filter_id": "cartoon"}
 
     resp = client.post("/api/v1/filters/process", files=files, data=data)
-    assert resp.status_code == 400
+    assert resp.status_code == 422
     assert "Corrupted or unreadable" in resp.json()["detail"]
+
+
+def test_api_oversized_file(client, monkeypatch):
+    """Verify upload exceeding MAX_UPLOAD_SIZE_MB returns HTTP 413."""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "MAX_UPLOAD_SIZE_MB", 1)  # 1MB limit
+
+    oversized_bytes = b"\xFF\xD8\xFF\xE0" + b"\x00" * (1024 * 1024 + 1024)
+    files = {"file": ("big.jpg", oversized_bytes, "image/jpeg")}
+    data = {"filter_id": "cartoon"}
+
+    resp = client.post("/api/v1/filters/process", files=files, data=data)
+    assert resp.status_code == 413
+    assert "exceeds maximum allowed limit" in resp.json()["detail"]
+
+
+def test_api_unsupported_format(client):
+    """Verify non-image binary or text payload returns HTTP 415 Unsupported Media Type."""
+    text_payload = b"<!DOCTYPE html><html><body><h1>Not an image</h1></body></html>"
+    files = {"file": ("exploit.html", text_payload, "text/html")}
+    data = {"filter_id": "cartoon"}
+
+    resp = client.post("/api/v1/filters/process", files=files, data=data)
+    assert resp.status_code == 415
+    assert "signature" in resp.json()["detail"].lower()
+
+
+def test_security_headers_present(client):
+    """Verify security headers are applied to HTTP responses."""
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.headers.get("x-content-type-options") == "nosniff"
+    assert resp.headers.get("x-frame-options") == "DENY"
+    assert resp.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+
+def test_cors_configured_origins(client):
+    """Verify CORS middleware handles configured origin preflight."""
+    headers = {
+        "Origin": "http://localhost:3000",
+        "Access-Control-Request-Method": "POST",
+    }
+    resp = client.options("/api/v1/filters/process", headers=headers)
+    assert resp.status_code == 200
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"

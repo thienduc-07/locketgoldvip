@@ -71,4 +71,117 @@ async def test_fal_provider_mock_response():
 
         assert meta["status"] == "success"
         assert meta["fallback_applied"] is False
+        assert meta["applied"] is True
+        assert meta["success"] is True
         assert out_np.shape == (100, 100, 3)
+
+
+@pytest.mark.asyncio
+async def test_fal_provider_invalid_key_http_401():
+    """Verify FalAIProvider handles invalid API key (HTTP 401) via MockTransport."""
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, text="Unauthorized: Invalid API key")
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as mock_client:
+        provider = FalAIProvider(api_key="invalid_test_key_12345")
+        dummy_np = np.zeros((50, 50, 3), dtype=np.uint8)
+        out_np, meta = await provider.generate_style(dummy_np, "prompt", "anime", http_client=mock_client)
+
+        assert np.array_equal(out_np, dummy_np)
+        assert meta["status"] == "http_error"
+        assert meta["http_status"] == 401
+        assert meta["fallback_applied"] is True
+        assert meta["applied"] is False
+        assert meta["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_fal_provider_rate_limit_http_429():
+    """Verify FalAIProvider handles rate limiting (HTTP 429) via MockTransport."""
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, text="Rate limit exceeded. Retry later.")
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as mock_client:
+        provider = FalAIProvider(api_key="valid_key_123456789")
+        dummy_np = np.zeros((50, 50, 3), dtype=np.uint8)
+        out_np, meta = await provider.generate_style(dummy_np, "prompt", "anime", http_client=mock_client)
+
+        assert np.array_equal(out_np, dummy_np)
+        assert meta["status"] == "http_error"
+        assert meta["http_status"] == 429
+        assert meta["fallback_applied"] is True
+
+
+@pytest.mark.asyncio
+async def test_fal_provider_server_error_http_500():
+    """Verify FalAIProvider handles provider server crash (HTTP 500) via MockTransport."""
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="Internal Server Error in model worker")
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as mock_client:
+        provider = FalAIProvider(api_key="valid_key_123456789")
+        dummy_np = np.zeros((50, 50, 3), dtype=np.uint8)
+        out_np, meta = await provider.generate_style(dummy_np, "prompt", "anime", http_client=mock_client)
+
+        assert np.array_equal(out_np, dummy_np)
+        assert meta["status"] == "http_error"
+        assert meta["http_status"] == 500
+        assert meta["fallback_applied"] is True
+
+
+@pytest.mark.asyncio
+async def test_fal_provider_network_timeout():
+    """Verify FalAIProvider handles remote network timeout cleanly via MockTransport."""
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("Connection timed out to Fal.ai gateway")
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as mock_client:
+        provider = FalAIProvider(api_key="valid_key_123456789")
+        dummy_np = np.zeros((50, 50, 3), dtype=np.uint8)
+        out_np, meta = await provider.generate_style(dummy_np, "prompt", "anime", http_client=mock_client)
+
+        assert np.array_equal(out_np, dummy_np)
+        assert meta["status"] == "timeout"
+        assert meta["fallback_applied"] is True
+
+
+@pytest.mark.asyncio
+async def test_fal_provider_malformed_response():
+    """Verify FalAIProvider handles response missing images array schema via MockTransport."""
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"unexpected_key": "no_images_here"})
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as mock_client:
+        provider = FalAIProvider(api_key="valid_key_123456789")
+        dummy_np = np.zeros((50, 50, 3), dtype=np.uint8)
+        out_np, meta = await provider.generate_style(dummy_np, "prompt", "anime", http_client=mock_client)
+
+        assert np.array_equal(out_np, dummy_np)
+        assert meta["status"] == "schema_error"
+        assert meta["fallback_applied"] is True
+
+
+@pytest.mark.asyncio
+async def test_fal_provider_corrupted_generated_image():
+    """Verify FalAIProvider handles corrupted downloaded image bytes via MockTransport."""
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        if "image-to-image" in str(request.url):
+            return httpx.Response(200, json={"images": [{"url": "https://fal.media/corrupt.jpg"}]})
+        elif "corrupt.jpg" in str(request.url):
+            return httpx.Response(200, content=b"Not a valid image data payload")
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport) as mock_client:
+        provider = FalAIProvider(api_key="valid_key_123456789")
+        dummy_np = np.zeros((50, 50, 3), dtype=np.uint8)
+        out_np, meta = await provider.generate_style(dummy_np, "prompt", "anime", http_client=mock_client)
+
+        # Exception caught when Image.open fails -> returns original image fallback
+        assert np.array_equal(out_np, dummy_np)
+        assert meta["fallback_applied"] is True

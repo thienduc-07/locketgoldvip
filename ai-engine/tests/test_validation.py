@@ -115,3 +115,36 @@ def test_validate_output_invalid_channels():
     rgba_arr = np.zeros((100, 100, 4), dtype=np.uint8)
     with pytest.raises(ImageValidationError, match="shape"):
         ImageValidator.validate_output(rgba_arr)
+
+
+@pytest.mark.asyncio
+async def test_streaming_upload_rejection_early_abort():
+    """
+    Verify that read_upload_stream aborts immediately during chunked reading
+    when byte limit is exceeded, preventing unbounded in-memory buffering.
+    """
+    from fastapi import UploadFile
+    import io
+
+    # Create a 2MB buffer, test with max_bytes = 100KB (0.1MB)
+    two_mb_stream = io.BytesIO(b"A" * (2 * 1024 * 1024))
+    upload = UploadFile(filename="oversized.jpg", file=two_mb_stream)
+
+    read_calls = 0
+    orig_read = upload.read
+
+    async def counting_read(size=-1):
+        nonlocal read_calls
+        read_calls += 1
+        return await orig_read(size)
+
+    upload.read = counting_read
+
+    max_allowed = 128 * 1024  # 128KB limit
+    chunk_sz = 64 * 1024      # 64KB chunks
+
+    with pytest.raises(ImageValidationError, match="exceeds maximum allowed limit"):
+        await ImageValidator.read_upload_stream(upload, max_bytes=max_allowed, chunk_size=chunk_sz)
+
+    # Must abort by chunk 3 (128KB + 64KB > 128KB), NOT reading all 32 chunks of the 2MB file
+    assert read_calls <= 3, f"Stream was not aborted early! Read calls made: {read_calls}"

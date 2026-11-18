@@ -8,7 +8,12 @@ from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.filters import router as filters_router
 from app.api.photobooth import router as photobooth_router
-from app.services.image_validator import ImageValidationError
+from app.services.image_validator import (
+    ImageValidationError,
+    ImageSizeLimitError,
+    ImageFormatError,
+    ImageCorruptedError
+)
 
 # Structured Logging Setup
 logging.basicConfig(
@@ -35,16 +40,68 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 # CORS Configuration
+origins = settings.cors_origins_list
+allow_creds = settings.CORS_ALLOW_CREDENTIALS and ("*" not in origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=origins,
+    allow_credentials=allow_creds,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Centralized Exception Handlers
+@app.exception_handler(ImageSizeLimitError)
+async def image_size_limit_handler(request: Request, exc: ImageSizeLimitError):
+    logger.warning(f"Upload size exceeded on {request.url.path}: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        content={
+            "status": "failed",
+            "error_type": "ImageSizeLimitError",
+            "detail": str(exc)
+        }
+    )
+
+
+@app.exception_handler(ImageFormatError)
+async def image_format_handler(request: Request, exc: ImageFormatError):
+    logger.warning(f"Unsupported format on {request.url.path}: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        content={
+            "status": "failed",
+            "error_type": "ImageFormatError",
+            "detail": str(exc)
+        }
+    )
+
+
+@app.exception_handler(ImageCorruptedError)
+async def image_corrupted_handler(request: Request, exc: ImageCorruptedError):
+    logger.warning(f"Corrupted or invalid image data on {request.url.path}: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "status": "failed",
+            "error_type": "ImageCorruptedError",
+            "detail": str(exc)
+        }
+    )
+
+
 @app.exception_handler(ImageValidationError)
 async def image_validation_exception_handler(request: Request, exc: ImageValidationError):
     logger.warning(f"Validation rejection on {request.url.path}: {str(exc)}")

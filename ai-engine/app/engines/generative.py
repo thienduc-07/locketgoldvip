@@ -93,8 +93,11 @@ class FalAIProvider(GenerativeModelProvider):
                 "provider": "fal_ai",
                 "model": self.model_id,
                 "status": "skipped_no_credentials",
+                "applied": False,
+                "success": False,
                 "error": "FAL_KEY environment variable is not configured",
-                "fallback_applied": True
+                "fallback_applied": True,
+                "fallback_used": True
             }
 
         # Encode input image to JPEG data URI
@@ -108,8 +111,11 @@ class FalAIProvider(GenerativeModelProvider):
             return img_rgb, {
                 "provider": "fal_ai",
                 "status": "encoding_error",
+                "applied": False,
+                "success": False,
                 "error": f"Failed to encode input image for Fal.ai payload: {str(e)}",
-                "fallback_applied": True
+                "fallback_applied": True,
+                "fallback_used": True
             }
 
         headers = {
@@ -137,9 +143,12 @@ class FalAIProvider(GenerativeModelProvider):
                 return img_rgb, {
                     "provider": "fal_ai",
                     "status": "http_error",
+                    "applied": False,
+                    "success": False,
                     "http_status": resp.status_code,
                     "error": resp.text[:200],
-                    "fallback_applied": True
+                    "fallback_applied": True,
+                    "fallback_used": True
                 }
 
             data = resp.json()
@@ -148,8 +157,11 @@ class FalAIProvider(GenerativeModelProvider):
                 return img_rgb, {
                     "provider": "fal_ai",
                     "status": "schema_error",
+                    "applied": False,
+                    "success": False,
                     "error": "Fal.ai response did not contain expected images[0].url field",
-                    "fallback_applied": True
+                    "fallback_applied": True,
+                    "fallback_used": True
                 }
 
             # Download generated result
@@ -159,8 +171,11 @@ class FalAIProvider(GenerativeModelProvider):
                 return img_rgb, {
                     "provider": "fal_ai",
                     "status": "download_error",
+                    "applied": False,
+                    "success": False,
                     "error": f"Failed to download generated image from {img_url}",
-                    "fallback_applied": True
+                    "fallback_applied": True,
+                    "fallback_used": True
                 }
 
             out_pil = Image.open(io.BytesIO(img_resp.content)).convert("RGB")
@@ -170,23 +185,32 @@ class FalAIProvider(GenerativeModelProvider):
                 "provider": "fal_ai",
                 "model": self.model_id,
                 "status": "success",
+                "applied": True,
+                "success": True,
                 "cost_usd": 0.002,
-                "fallback_applied": False
+                "fallback_applied": False,
+                "fallback_used": False
             }
 
         except httpx.TimeoutException:
             return img_rgb, {
                 "provider": "fal_ai",
                 "status": "timeout",
+                "applied": False,
+                "success": False,
                 "error": f"Fal.ai request exceeded timeout of {self.timeout_sec}s",
-                "fallback_applied": True
+                "fallback_applied": True,
+                "fallback_used": True
             }
         except Exception as e:
             return img_rgb, {
                 "provider": "fal_ai",
                 "status": "exception",
+                "applied": False,
+                "success": False,
                 "error": str(e),
-                "fallback_applied": True
+                "fallback_applied": True,
+                "fallback_used": True
             }
         finally:
             if should_close:
@@ -249,10 +273,12 @@ class CartoonFilterEngine(BaseFilterEngine):
         output = cv2.addWeighted(img_rgb, 1.0 - intensity, cartoon_raw, intensity, 0)
 
         metadata = {
+            "filter": "cartoon",
+            "applied": True,
+            "success": True,
             "technology": "bilateral_pyramid_adaptive_threshold_quantization",
             "provider": "local_cv",
             "cost_usd": 0.0,
-            "identity_preservation_score": 0.88,
             "identity_notes": "Preserves recognizable face geometry, hair outline, and subject composition with cartoon stylization."
         }
         return output, metadata
@@ -306,10 +332,12 @@ class AnimeFilterEngine(BaseFilterEngine):
         output = cv2.addWeighted(img_rgb, 1.0 - intensity, anime_raw, intensity, 0)
 
         metadata = {
+            "filter": "anime",
+            "applied": True,
+            "success": True,
             "technology": "pastel_color_grading_highlight_bloom_line_extract",
             "provider": "local_cv",
             "cost_usd": 0.0,
-            "identity_preservation_score": 0.85,
             "identity_notes": "Eye region, face shape, and main contours preserved; color palette shifted to anime tones."
         }
         return output, metadata
@@ -369,11 +397,13 @@ class Chibi3DFilterEngine(BaseFilterEngine):
         output = cv2.addWeighted(img_rgb, 1.0 - intensity, chibi_final, intensity, 0)
 
         metadata = {
+            "filter": "chibi_3d",
+            "applied": True,
+            "success": True,
             "technology": "clay_surface_diffusion_specular_laplacian_studio_lighting",
             "stylization_type": "2d_image_processing",
             "provider": "local_cv",
             "cost_usd": 0.0,
-            "identity_preservation_score": 0.83,
             "identity_notes": "Maintains recognizable facial layout and expression with 2D porcelain clay figurine stylization (not 3D mesh)."
         }
         return output, metadata

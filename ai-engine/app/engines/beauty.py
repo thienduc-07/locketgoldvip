@@ -88,10 +88,12 @@ class BeautyMakeupFilterEngine(BaseFilterEngine):
         output = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
 
         metadata = {
+            "filter": "beauty_makeup",
+            "applied": True,
+            "success": True,
             "faces_detected": faces_detected,
             "skin_smoothing_applied": True,
             "lip_blush_applied": faces_detected > 0,
-            "identity_preservation_score": 0.99,
-            "identity_notes": "100% facial geometry, eye alignment, natural expressions, and background preserved."
+            "identity_notes": "Facial geometry, eye alignment, natural expressions, and background preserved via bilateral edge-preserving smoothing."
         }
         return output, metadata

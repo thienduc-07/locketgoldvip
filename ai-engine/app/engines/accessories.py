@@ -102,28 +102,35 @@ class GlassesFilterEngine(BaseFilterEngine):
                 # Temples (arms extending outward to ear region)
                 cv2.line(overlay, (lx - lens_w - 2, ly), (max(0, lx - lens_w - int(fw * 0.12)), ly - 4), frame_color, bridge_thickness)
                 cv2.line(overlay, (rx + lens_w + 2, ry), (min(w - 1, rx + lens_w + int(fw * 0.12)), ry - 4), frame_color, bridge_thickness)
-        else:
-            # Fallback if no frontal face detected: apply a subtle warm amber sunglass lens grade
-            amber_overlay = np.zeros_like(img_rgb, dtype=np.float32)
-            amber_overlay[:, :] = [30, 15, -10]
-            toned = np.clip(img_rgb.astype(np.float32) + amber_overlay * intensity, 0, 255).astype(np.uint8)
-            output = cv2.addWeighted(img_rgb, 1.0 - (0.35 * intensity), toned, (0.35 * intensity), 0)
 
-        # Alpha composite overlay onto base image
-        if faces_detected > 0:
+            # Alpha composite overlay onto base image
             alpha = overlay[:, :, 3].astype(np.float32) / 255.0
             for c in range(3):
                 output[:, :, c] = (
                     alpha * overlay[:, :, c] + (1.0 - alpha) * output[:, :, c]
                 ).astype(np.uint8)
 
-        metadata = {
-            "faces_detected": faces_detected,
-            "landmarks_used": "haar_frontalface_eye",
-            "identity_preservation_score": 0.98,
-            "identity_notes": "Facial geometry, skin, hair, and background 100% preserved outside glasses boundary."
-        }
-        return output, metadata
+            metadata = {
+                "filter": "glasses",
+                "applied": True,
+                "success": True,
+                "faces_detected": faces_detected,
+                "landmarks_used": "haar_frontalface_eye",
+                "identity_notes": "Facial geometry, skin, hair, and background preserved outside sunglasses boundary."
+            }
+            return output, metadata
+        else:
+            # Honest handling: when no face/eyes detected, do NOT apply fake amber tint
+            metadata = {
+                "filter": "glasses",
+                "applied": False,
+                "success": False,
+                "fallback_used": False,
+                "faces_detected": 0,
+                "warnings": ["No frontal face or eyes detected. Sunglasses accessory could not be positioned."],
+                "identity_notes": "Original image preserved with zero modifications."
+            }
+            return img_rgb.copy(), metadata
 
 
 class BeardFilterEngine(BaseFilterEngine):
@@ -210,17 +217,25 @@ class BeardFilterEngine(BaseFilterEngine):
                 orig_c = output[:, :, c].astype(np.float32)
                 shaded = orig_c * (1.0 - effective_mask) + beard_tint[c] * effective_mask
                 output[:, :, c] = np.clip(shaded, 0, 255).astype(np.uint8)
-        else:
-            # Fallback if no frontal face detected: apply a warm barbershop tone
-            barber_tone = np.zeros_like(img_rgb, dtype=np.float32)
-            barber_tone[:, :] = [12, -4, -14]
-            toned = np.clip(img_rgb.astype(np.float32) + barber_tone * intensity, 0, 255).astype(np.uint8)
-            output = cv2.addWeighted(img_rgb, 1.0 - (0.30 * intensity), toned, (0.30 * intensity), 0)
 
-        metadata = {
-            "faces_detected": faces_detected,
-            "landmarks_used": "haar_frontalface_jawline_geometry",
-            "identity_preservation_score": 0.96,
-            "identity_notes": "Upper face, eyes, nose, cheeks, and forehead 100% untouched. Jawline natural geometry followed."
-        }
-        return output, metadata
+            metadata = {
+                "filter": "beard",
+                "applied": True,
+                "success": True,
+                "faces_detected": faces_detected,
+                "landmarks_used": "haar_frontalface_jawline_geometry",
+                "identity_notes": "Upper face, eyes, nose, cheeks, and forehead untouched. Jawline natural geometry followed."
+            }
+            return output, metadata
+        else:
+            # Honest handling: when no face/jawline detected, do NOT apply fake barbershop tone
+            metadata = {
+                "filter": "beard",
+                "applied": False,
+                "success": False,
+                "fallback_used": False,
+                "faces_detected": 0,
+                "warnings": ["No frontal face or jawline detected. Beard accessory was not applied."],
+                "identity_notes": "Original image preserved with zero modifications."
+            }
+            return img_rgb.copy(), metadata

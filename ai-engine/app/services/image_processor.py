@@ -18,6 +18,16 @@ from app.engines.beauty import BeautyMakeupFilterEngine
 from app.engines.generative import CartoonFilterEngine, AnimeFilterEngine, Chibi3DFilterEngine
 
 
+def _run_engine_in_worker(engine: BaseFilterEngine, img_np: np.ndarray, intensity: float, session_id: str):
+    """
+    Executes CPU-bound computer vision filter inside a dedicated worker thread.
+    Allocates and guarantees cleanup of temporary directories inside the thread itself,
+    ensuring directory lifecycle matches thread lifetime even if the caller times out.
+    """
+    with temporary_working_directory(prefix=f"locket_{session_id[:8]}_"):
+        return engine.apply(img_np, intensity)
+
+
 class ImageProcessor:
     """
     Central orchestration service for image validation, filter application,
@@ -130,92 +140,122 @@ class ImageProcessor:
         model_init_duration = (time.perf_counter() - model_init_start) * 1000.0
 
         # 3. Inference / Filtering Phase (Protected by Concurrency Semaphore, Non-blocking Thread & Timeout)
-        async with concurrency_limiter:
-            with temporary_working_directory(prefix=f"locket_{session_id[:8]}_"):
-                inf_start = time.perf_counter()
-                loop = asyncio.get_running_loop()
-                try:
-                    # Offload CPU-bound OpenCV computation to thread pool to preserve event loop responsiveness
-                    task = loop.run_in_executor(
-                        self._executor,
-                        engine.apply,
-                        img_np,
-                        intensity
-                    )
-                    processed_np, metadata = await asyncio.wait_for(
-                        task,
-                        timeout=settings.MAX_PROCESSING_TIMEOUT_SEC
-                    )
-                except asyncio.TimeoutError:
-                    inf_duration = (time.perf_counter() - inf_start) * 1000.0
-                    total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
-                    return FilterProcessResponse(
-                        status="failed",
-                        session_id=session_id,
-                        filter_id=filter_id,
-                        output_image=None,
-                        dimensions=ImageDimensions(width=pil_img.width, height=pil_img.height),
-                        metrics=ProcessingMetrics(
-                            upload_duration_ms=round(upload_duration_ms, 2),
-                            validation_duration_ms=round(val_duration, 2),
-                            model_init_duration_ms=round(model_init_duration, 2),
-                            inference_duration_ms=round(inf_duration, 2),
-                            export_duration_ms=0.0,
-                            total_duration_ms=round(total_duration, 2)
-                        ),
-                        error=f"Processing timeout exceeded ({settings.MAX_PROCESSING_TIMEOUT_SEC}s)."
-                    )
-                except Exception as e:
-                    inf_duration = (time.perf_counter() - inf_start) * 1000.0
-                    total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
-                    return FilterProcessResponse(
-                        status="failed",
-                        session_id=session_id,
-                        filter_id=filter_id,
-                        output_image=None,
-                        dimensions=ImageDimensions(width=pil_img.width, height=pil_img.height),
-                        metrics=ProcessingMetrics(
-                            upload_duration_ms=round(upload_duration_ms, 2),
-                            validation_duration_ms=round(val_duration, 2),
-                            model_init_duration_ms=round(model_init_duration, 2),
-                            inference_duration_ms=round(inf_duration, 2),
-                            export_duration_ms=0.0,
-                            total_duration_ms=round(total_duration, 2)
-                        ),
-                        error=f"Filter processing error: {str(e)}"
-                    )
-                inf_duration = (time.perf_counter() - inf_start) * 1000.0
+        permit_acquired = False
+        try:
+            await asyncio.wait_for(concurrency_limiter.acquire(), timeout=settings.MAX_QUEUE_WAIT_SEC)
+            permit_acquired = True
+        except asyncio.TimeoutError:
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return FilterProcessResponse(
+                status="failed",
+                session_id=session_id,
+                filter_id=filter_id,
+                output_image=None,
+                dimensions=ImageDimensions(width=pil_img.width, height=pil_img.height),
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=round(model_init_duration, 2),
+                    inference_duration_ms=0.0,
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error="Server capacity limit reached: queue wait timeout exceeded (HTTP 503)."
+            )
 
-                # 4. Output Validation & Base64 Export Phase
-                export_start = time.perf_counter()
-                try:
-                    out_pil = ImageValidator.validate_output(processed_np)
-                except ImageValidationError as e:
-                    export_duration = (time.perf_counter() - export_start) * 1000.0
-                    total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
-                    return FilterProcessResponse(
-                        status="failed",
-                        session_id=session_id,
-                        filter_id=filter_id,
-                        output_image=None,
-                        dimensions=None,
-                        metrics=ProcessingMetrics(
-                            upload_duration_ms=round(upload_duration_ms, 2),
-                            validation_duration_ms=round(val_duration, 2),
-                            model_init_duration_ms=round(model_init_duration, 2),
-                            inference_duration_ms=round(inf_duration, 2),
-                            export_duration_ms=round(export_duration, 2),
-                            total_duration_ms=round(total_duration, 2)
-                        ),
-                        error=f"Output validation failed: {str(e)}"
-                    )
+        inf_start = time.perf_counter()
+        loop = asyncio.get_running_loop()
+        try:
+            future = self._executor.submit(
+                _run_engine_in_worker,
+                engine,
+                img_np,
+                intensity,
+                session_id
+            )
+            # Worker capacity permit is released ONLY when worker thread actually finishes execution
+            future.add_done_callback(lambda f: concurrency_limiter.safe_release_from_thread(loop))
+            permit_acquired = False  # Ownership transferred to future callback
 
-                bio_out = io.BytesIO()
-                out_pil.save(bio_out, format="JPEG", quality=92, optimize=True)
-                encoded_bytes = bio_out.getvalue()
-                b64_str = base64.b64encode(encoded_bytes).decode("ascii")
-                data_uri = f"data:image/jpeg;base64,{b64_str}"
-                export_duration = (time.perf_counter() - export_start) * 1000.0
+            asyncio_task = asyncio.wrap_future(future)
+            processed_np, metadata = await asyncio.wait_for(
+                asyncio_task,
+                timeout=settings.MAX_PROCESSING_TIMEOUT_SEC
+            )
+        except asyncio.TimeoutError:
+            inf_duration = (time.perf_counter() - inf_start) * 1000.0
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return FilterProcessResponse(
+                status="failed",
+                session_id=session_id,
+                filter_id=filter_id,
+                output_image=None,
+                dimensions=ImageDimensions(width=pil_img.width, height=pil_img.height),
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=round(model_init_duration, 2),
+                    inference_duration_ms=round(inf_duration, 2),
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error=f"Processing timeout exceeded ({settings.MAX_PROCESSING_TIMEOUT_SEC}s)."
+            )
+        except Exception as e:
+            inf_duration = (time.perf_counter() - inf_start) * 1000.0
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return FilterProcessResponse(
+                status="failed",
+                session_id=session_id,
+                filter_id=filter_id,
+                output_image=None,
+                dimensions=ImageDimensions(width=pil_img.width, height=pil_img.height),
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=round(model_init_duration, 2),
+                    inference_duration_ms=round(inf_duration, 2),
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error=f"Filter processing error: {str(e)}"
+            )
+        finally:
+            if permit_acquired:
+                concurrency_limiter.release()
+
+        inf_duration = (time.perf_counter() - inf_start) * 1000.0
+
+        # 4. Output Validation & Base64 Export Phase
+        export_start = time.perf_counter()
+        try:
+            out_pil = ImageValidator.validate_output(processed_np)
+        except ImageValidationError as e:
+            export_duration = (time.perf_counter() - export_start) * 1000.0
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return FilterProcessResponse(
+                status="failed",
+                session_id=session_id,
+                filter_id=filter_id,
+                output_image=None,
+                dimensions=None,
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=round(model_init_duration, 2),
+                    inference_duration_ms=round(inf_duration, 2),
+                    export_duration_ms=round(export_duration, 2),
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error=f"Output validation failed: {str(e)}"
+            )
+
+        bio_out = io.BytesIO()
+        out_pil.save(bio_out, format="JPEG", quality=92, optimize=True)
+        encoded_bytes = bio_out.getvalue()
+        b64_str = base64.b64encode(encoded_bytes).decode("ascii")
+        data_uri = f"data:image/jpeg;base64,{b64_str}"
+        export_duration = (time.perf_counter() - export_start) * 1000.0
 
         total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
 

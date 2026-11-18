@@ -3,7 +3,13 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
 from app.schemas.image import FilterProcessResponse, FilterType
 from app.services.image_processor import image_processor
-from app.services.image_validator import ImageValidationError
+from app.services.image_validator import (
+    ImageValidator,
+    ImageValidationError,
+    ImageSizeLimitError,
+    ImageFormatError,
+    ImageCorruptedError
+)
 
 router = APIRouter(prefix="/api/v1/filters", tags=["Filters"])
 
@@ -31,12 +37,17 @@ async def process_filter(
     """
     upload_start = time.perf_counter()
     try:
-        image_bytes = await file.read()
+        image_bytes = await ImageValidator.read_upload_stream(file)
+    except ImageSizeLimitError as e:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(e))
+    except ImageFormatError as e:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(e))
+    except ImageCorruptedError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except ImageValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read upload payload: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to read upload payload: {str(e)}")
     upload_duration = (time.perf_counter() - upload_start) * 1000.0
 
     # Execute image processor orchestration
@@ -49,17 +60,17 @@ async def process_filter(
     )
 
     if response.status == "failed":
-        # Check if client error (validation) vs server error
         err_msg = (response.error or "").lower()
-        if (
-            "unsupported filter id" in err_msg
-            or "signature" in err_msg
-            or "dimensions" in err_msg
-            or "exceeds maximum" in err_msg
-            or "corrupted or unreadable" in err_msg
-            or "empty" in err_msg
-        ):
+        if "unsupported filter id" in err_msg or "empty" in err_msg:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=response.error)
+        elif "exceeds maximum allowed limit" in err_msg or "file size exceeds" in err_msg:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=response.error)
+        elif "signature" in err_msg or "mime type" in err_msg or "format" in err_msg:
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=response.error)
+        elif "corrupted" in err_msg or "dimension" in err_msg or "unreadable" in err_msg or "output validation" in err_msg:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=response.error)
+        elif "capacity limit reached" in err_msg or "queue wait timeout" in err_msg:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=response.error)
         elif "timeout" in err_msg:
             raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=response.error)
         else:
@@ -80,12 +91,17 @@ async def preview_filter(
     """
     upload_start = time.perf_counter()
     try:
-        image_bytes = await file.read()
+        image_bytes = await ImageValidator.read_upload_stream(file)
+    except ImageSizeLimitError as e:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(e))
+    except ImageFormatError as e:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(e))
+    except ImageCorruptedError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except ImageValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read upload payload: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to read upload payload: {str(e)}")
     upload_duration = (time.perf_counter() - upload_start) * 1000.0
 
     response = await image_processor.process_image(
@@ -97,8 +113,19 @@ async def preview_filter(
     )
 
     if response.status == "failed":
-        if "Unsupported filter ID" in (response.error or "") or "signature" in (response.error or "") or "dimensions" in (response.error or ""):
+        err_msg = (response.error or "").lower()
+        if "unsupported filter id" in err_msg or "empty" in err_msg:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=response.error)
+        elif "exceeds maximum allowed limit" in err_msg or "file size exceeds" in err_msg:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=response.error)
+        elif "signature" in err_msg or "mime type" in err_msg or "format" in err_msg:
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=response.error)
+        elif "corrupted" in err_msg or "dimension" in err_msg or "unreadable" in err_msg or "output validation" in err_msg:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=response.error)
+        elif "capacity limit reached" in err_msg or "queue wait timeout" in err_msg:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=response.error)
+        elif "timeout" in err_msg:
+            raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=response.error)
         else:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=response.error)
 

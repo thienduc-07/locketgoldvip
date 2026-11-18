@@ -1,7 +1,8 @@
 import io
-from typing import Tuple
+from typing import Tuple, Optional
 import numpy as np
 from PIL import Image, UnidentifiedImageError
+from fastapi import UploadFile
 from app.core.config import settings
 
 # Enforce DecompressionBomb protection (prevent denial-of-service via massive raster expansions)
@@ -9,12 +10,63 @@ Image.MAX_IMAGE_PIXELS = 64 * 1024 * 1024  # 64 Megapixels maximum
 
 
 class ImageValidationError(Exception):
-    """Custom exception raised when an uploaded image fails validation."""
+    """Base exception for image validation rejections."""
+    pass
+
+
+class ImageSizeLimitError(ImageValidationError):
+    """Raised when upload payload exceeds byte limit (HTTP 413)."""
+    pass
+
+
+class ImageFormatError(ImageValidationError):
+    """Raised when file signature/MIME is unsupported (HTTP 415)."""
+    pass
+
+
+class ImageCorruptedError(ImageValidationError):
+    """Raised when image bytes are corrupted, unreadable, or out of dimension bounds (HTTP 422)."""
     pass
 
 
 class ImageValidator:
     """Strict validator for uploaded image files enforcing security, MIME, and dimensions."""
+
+    @classmethod
+    async def read_upload_stream(
+        cls,
+        upload_file: UploadFile,
+        max_bytes: Optional[int] = None,
+        chunk_size: int = 64 * 1024
+    ) -> bytes:
+        """
+        Reads an UploadFile in bounded chunks without buffering oversized files into memory.
+        If accumulated bytes exceed max_bytes, reading stops immediately, the file is closed,
+        and an ImageValidationError is raised.
+        """
+        limit = max_bytes if max_bytes is not None else settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+        chunks = []
+        total_bytes = 0
+
+        try:
+            while True:
+                chunk = await upload_file.read(chunk_size)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > limit:
+                    raise ImageSizeLimitError(
+                        f"File size exceeds maximum allowed limit of {settings.MAX_UPLOAD_SIZE_MB}MB "
+                        f"(aborted at {total_bytes / (1024 * 1024):.2f}MB)."
+                    )
+                chunks.append(chunk)
+        finally:
+            await upload_file.close()
+
+        if total_bytes == 0:
+            raise ImageValidationError("Uploaded image file is empty.")
+
+        return b"".join(chunks)
 
     @staticmethod
     def detect_mime_from_signature(data: bytes) -> str:
@@ -23,7 +75,7 @@ class ImageValidator:
         Prevents file extension spoofing and polyglot attacks.
         """
         if len(data) < 12:
-            raise ImageValidationError("File is too small to contain a valid image signature.")
+            raise ImageFormatError("File is too small to contain a valid image signature.")
 
         # JPEG: FF D8 FF
         if data.startswith(b"\xFF\xD8\xFF"):
@@ -37,7 +89,7 @@ class ImageValidator:
         if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
             return "image/webp"
 
-        raise ImageValidationError("Unsupported or invalid file signature. Only JPEG, PNG, and WebP are allowed.")
+        raise ImageFormatError("Unsupported or invalid file signature. Only JPEG, PNG, and WebP are allowed.")
 
     @classmethod
     def validate_upload(
@@ -61,7 +113,7 @@ class ImageValidator:
 
         max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
         if len(data) > max_bytes:
-            raise ImageValidationError(
+            raise ImageSizeLimitError(
                 f"File size exceeds maximum allowed limit of {settings.MAX_UPLOAD_SIZE_MB}MB "
                 f"(received {len(data) / (1024 * 1024):.2f}MB)."
             )
@@ -70,7 +122,7 @@ class ImageValidator:
         detected_mime = cls.detect_mime_from_signature(data)
 
         if detected_mime not in settings.ALLOWED_MIME_TYPES:
-            raise ImageValidationError(f"MIME type '{detected_mime}' is not permitted.")
+            raise ImageFormatError(f"MIME type '{detected_mime}' is not permitted.")
 
         # Decode image using Pillow
         try:
@@ -84,7 +136,7 @@ class ImageValidator:
             img = Image.open(bio_load)
             img.load()
         except (UnidentifiedImageError, OSError, ValueError) as e:
-            raise ImageValidationError(f"Corrupted or unreadable image data: {str(e)}")
+            raise ImageCorruptedError(f"Corrupted or unreadable image data: {str(e)}")
 
         width, height = img.size
 
@@ -92,12 +144,12 @@ class ImageValidator:
         max_d = max_dim or settings.MAX_IMAGE_DIMENSION
 
         if width < min_d or height < min_d:
-            raise ImageValidationError(
+            raise ImageCorruptedError(
                 f"Image dimensions ({width}x{height}) are smaller than minimum allowed ({min_d}x{min_d})."
             )
 
         if width > max_d or height > max_d:
-            raise ImageValidationError(
+            raise ImageCorruptedError(
                 f"Image dimensions ({width}x{height}) exceed maximum allowed ({max_d}x{max_d})."
             )
 
@@ -125,22 +177,22 @@ class ImageValidator:
         Returns: Decodable PIL.Image in RGB mode.
         """
         if output_np is None:
-            raise ImageValidationError("Filter engine returned a null/empty output array.")
+            raise ImageCorruptedError("Filter engine returned a null/empty output array.")
 
         if not isinstance(output_np, np.ndarray):
-            raise ImageValidationError(f"Expected numpy ndarray from filter engine, got {type(output_np)}.")
+            raise ImageCorruptedError(f"Expected numpy ndarray from filter engine, got {type(output_np)}.")
 
         if output_np.dtype != np.uint8:
-            raise ImageValidationError(f"Invalid output image array dtype '{output_np.dtype}', expected uint8.")
+            raise ImageCorruptedError(f"Invalid output image array dtype '{output_np.dtype}', expected uint8.")
 
         if output_np.ndim != 3 or output_np.shape[2] != 3:
-            raise ImageValidationError(
+            raise ImageCorruptedError(
                 f"Invalid output image array shape {output_np.shape}. Expected 3-channel (H, W, 3) RGB format."
             )
 
         h, w = output_np.shape[:2]
         if w < settings.MIN_IMAGE_DIMENSION or h < settings.MIN_IMAGE_DIMENSION:
-            raise ImageValidationError(f"Output dimensions ({w}x{h}) are below minimum {settings.MIN_IMAGE_DIMENSION}px.")
+            raise ImageCorruptedError(f"Output dimensions ({w}x{h}) are below minimum {settings.MIN_IMAGE_DIMENSION}px.")
 
         if w > settings.MAX_IMAGE_DIMENSION or h > settings.MAX_IMAGE_DIMENSION:
             raise ImageValidationError(f"Output dimensions ({w}x{h}) exceed maximum {settings.MAX_IMAGE_DIMENSION}px.")

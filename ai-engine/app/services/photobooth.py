@@ -19,6 +19,16 @@ from app.schemas.photobooth import (
 )
 
 
+def _run_photobooth_in_worker(service: "PhotoboothService", valid_images: List[Image.Image], config: PhotoboothConfig, session_id: str) -> Image.Image:
+    """
+    Executes CPU-bound photobooth canvas generation inside a dedicated worker thread.
+    Allocates and guarantees cleanup of temporary directories inside the thread itself,
+    ensuring directory lifecycle matches thread lifetime even if caller times out.
+    """
+    with temporary_working_directory(prefix=f"photobooth_{session_id[:8]}_"):
+        return service._compose_sync(valid_images, config)
+
+
 class PhotoboothService:
     """
     Independent Photobooth Composition Engine.
@@ -233,99 +243,130 @@ class PhotoboothService:
         val_duration = (time.perf_counter() - val_start) * 1000.0
 
         # 2. Composition Phase (Protected by Concurrency Semaphore, Thread Pool, and Timeout)
-        async with concurrency_limiter:
-            with temporary_working_directory(prefix=f"photobooth_{session_id[:8]}_"):
-                inf_start = time.perf_counter()
-                loop = asyncio.get_running_loop()
-                try:
-                    task = loop.run_in_executor(
-                        self._executor,
-                        self._compose_sync,
-                        valid_pil_images,
-                        config
-                    )
-                    composed_canvas = await asyncio.wait_for(
-                        task,
-                        timeout=settings.MAX_PROCESSING_TIMEOUT_SEC
-                    )
-                except asyncio.TimeoutError:
-                    inf_duration = (time.perf_counter() - inf_start) * 1000.0
-                    total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
-                    return PhotoboothComposeResponse(
-                        status="failed",
-                        session_id=session_id,
-                        layout=config.layout.value,
-                        photo_count=len(valid_pil_images),
-                        output_image=None,
-                        dimensions=None,
-                        metrics=ProcessingMetrics(
-                            upload_duration_ms=round(upload_duration_ms, 2),
-                            validation_duration_ms=round(val_duration, 2),
-                            model_init_duration_ms=0.0,
-                            inference_duration_ms=round(inf_duration, 2),
-                            export_duration_ms=0.0,
-                            total_duration_ms=round(total_duration, 2)
-                        ),
-                        error=f"Photobooth composition timeout exceeded ({settings.MAX_PROCESSING_TIMEOUT_SEC}s)."
-                    )
-                except ImageValidationError as e:
-                    inf_duration = (time.perf_counter() - inf_start) * 1000.0
-                    total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
-                    return PhotoboothComposeResponse(
-                        status="failed",
-                        session_id=session_id,
-                        layout=config.layout.value,
-                        photo_count=len(valid_pil_images),
-                        output_image=None,
-                        dimensions=None,
-                        metrics=ProcessingMetrics(
-                            upload_duration_ms=round(upload_duration_ms, 2),
-                            validation_duration_ms=round(val_duration, 2),
-                            model_init_duration_ms=0.0,
-                            inference_duration_ms=round(inf_duration, 2),
-                            export_duration_ms=0.0,
-                            total_duration_ms=round(total_duration, 2)
-                        ),
-                        error=str(e)
-                    )
-                except Exception as e:
-                    inf_duration = (time.perf_counter() - inf_start) * 1000.0
-                    total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
-                    return PhotoboothComposeResponse(
-                        status="failed",
-                        session_id=session_id,
-                        layout=config.layout.value,
-                        photo_count=len(valid_pil_images),
-                        output_image=None,
-                        dimensions=None,
-                        metrics=ProcessingMetrics(
-                            upload_duration_ms=round(upload_duration_ms, 2),
-                            validation_duration_ms=round(val_duration, 2),
-                            model_init_duration_ms=0.0,
-                            inference_duration_ms=round(inf_duration, 2),
-                            export_duration_ms=0.0,
-                            total_duration_ms=round(total_duration, 2)
-                        ),
-                        error=f"Composition error: {str(e)}"
-                    )
+        permit_acquired = False
+        try:
+            await asyncio.wait_for(concurrency_limiter.acquire(), timeout=settings.MAX_QUEUE_WAIT_SEC)
+            permit_acquired = True
+        except asyncio.TimeoutError:
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return PhotoboothComposeResponse(
+                status="failed",
+                session_id=session_id,
+                layout=config.layout.value,
+                photo_count=len(valid_pil_images),
+                output_image=None,
+                dimensions=None,
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=0.0,
+                    inference_duration_ms=0.0,
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error="Server capacity limit reached: queue wait timeout exceeded (HTTP 503)."
+            )
 
-                inf_duration = (time.perf_counter() - inf_start) * 1000.0
+        inf_start = time.perf_counter()
+        loop = asyncio.get_running_loop()
+        try:
+            future = self._executor.submit(
+                _run_photobooth_in_worker,
+                self,
+                valid_pil_images,
+                config,
+                session_id
+            )
+            # Worker capacity permit is released ONLY when worker thread actually finishes execution
+            future.add_done_callback(lambda f: concurrency_limiter.safe_release_from_thread(loop))
+            permit_acquired = False  # Ownership transferred to future callback
 
-                # 3. Export & Encoding Phase
-                export_start = time.perf_counter()
-                out_fmt = "PNG" if config.output_format.lower() == "png" else "JPEG"
-                mime = "image/png" if out_fmt == "PNG" else "image/jpeg"
+            asyncio_task = asyncio.wrap_future(future)
+            composed_canvas = await asyncio.wait_for(
+                asyncio_task,
+                timeout=settings.MAX_PROCESSING_TIMEOUT_SEC
+            )
+        except asyncio.TimeoutError:
+            inf_duration = (time.perf_counter() - inf_start) * 1000.0
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return PhotoboothComposeResponse(
+                status="failed",
+                session_id=session_id,
+                layout=config.layout.value,
+                photo_count=len(valid_pil_images),
+                output_image=None,
+                dimensions=None,
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=0.0,
+                    inference_duration_ms=round(inf_duration, 2),
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error=f"Photobooth composition timeout exceeded ({settings.MAX_PROCESSING_TIMEOUT_SEC}s)."
+            )
+        except ImageValidationError as e:
+            inf_duration = (time.perf_counter() - inf_start) * 1000.0
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return PhotoboothComposeResponse(
+                status="failed",
+                session_id=session_id,
+                layout=config.layout.value,
+                photo_count=len(valid_pil_images),
+                output_image=None,
+                dimensions=None,
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=0.0,
+                    inference_duration_ms=round(inf_duration, 2),
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error=str(e)
+            )
+        except Exception as e:
+            inf_duration = (time.perf_counter() - inf_start) * 1000.0
+            total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
+            return PhotoboothComposeResponse(
+                status="failed",
+                session_id=session_id,
+                layout=config.layout.value,
+                photo_count=len(valid_pil_images),
+                output_image=None,
+                dimensions=None,
+                metrics=ProcessingMetrics(
+                    upload_duration_ms=round(upload_duration_ms, 2),
+                    validation_duration_ms=round(val_duration, 2),
+                    model_init_duration_ms=0.0,
+                    inference_duration_ms=round(inf_duration, 2),
+                    export_duration_ms=0.0,
+                    total_duration_ms=round(total_duration, 2)
+                ),
+                error=f"Composition error: {str(e)}"
+            )
+        finally:
+            if permit_acquired:
+                concurrency_limiter.release()
 
-                bio = io.BytesIO()
-                if out_fmt == "JPEG":
-                    composed_canvas.save(bio, format="JPEG", quality=config.output_quality, optimize=True)
-                else:
-                    composed_canvas.save(bio, format="PNG", optimize=True)
+        inf_duration = (time.perf_counter() - inf_start) * 1000.0
 
-                encoded_bytes = bio.getvalue()
-                b64_str = base64.b64encode(encoded_bytes).decode("ascii")
-                data_uri = f"data:{mime};base64,{b64_str}"
-                export_duration = (time.perf_counter() - export_start) * 1000.0
+        # 3. Export & Encoding Phase
+        export_start = time.perf_counter()
+        out_fmt = "PNG" if config.output_format.lower() == "png" else "JPEG"
+        mime = "image/png" if out_fmt == "PNG" else "image/jpeg"
+
+        bio = io.BytesIO()
+        if out_fmt == "JPEG":
+            composed_canvas.save(bio, format="JPEG", quality=config.output_quality, optimize=True)
+        else:
+            composed_canvas.save(bio, format="PNG", optimize=True)
+
+        encoded_bytes = bio.getvalue()
+        b64_str = base64.b64encode(encoded_bytes).decode("ascii")
+        data_uri = f"data:{mime};base64,{b64_str}"
+        export_duration = (time.perf_counter() - export_start) * 1000.0
 
         total_duration = (time.perf_counter() - total_start) * 1000.0 + upload_duration_ms
 

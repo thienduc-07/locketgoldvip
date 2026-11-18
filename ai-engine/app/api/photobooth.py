@@ -7,6 +7,13 @@ from app.schemas.photobooth import (
     PhotoboothComposeResponse
 )
 from app.services.photobooth import photobooth_service
+from app.services.image_validator import (
+    ImageValidator,
+    ImageValidationError,
+    ImageSizeLimitError,
+    ImageFormatError,
+    ImageCorruptedError
+)
 
 router = APIRouter(prefix="/api/v1/photobooth", tags=["Photobooth"])
 
@@ -43,17 +50,22 @@ async def compose_photobooth(
             detail=f"Invalid layout '{layout}'. Must be one of: {valid_layouts}"
         )
 
-    # Read uploaded images
+    # Read uploaded images with bounded streaming
     images_data: List[bytes] = []
     for f in files:
         try:
-            b = await f.read()
+            b = await ImageValidator.read_upload_stream(f)
             images_data.append(b)
+        except ImageSizeLimitError as e:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(e))
+        except ImageFormatError as e:
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(e))
+        except ImageCorruptedError as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        except ImageValidationError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to read uploaded photo: {str(e)}"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to read uploaded photo: {str(e)}")
 
     upload_duration = (time.perf_counter() - upload_start) * 1000.0
 
@@ -78,9 +90,18 @@ async def compose_photobooth(
     )
 
     if response.status == "failed":
-        if "requires exactly" in (response.error or "") or "validation failed" in (response.error or ""):
+        err_msg = (response.error or "").lower()
+        if "requires exactly" in err_msg or "layout" in err_msg or "empty" in err_msg:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=response.error)
-        elif "timeout" in (response.error or "").lower():
+        elif "exceeds maximum allowed limit" in err_msg or "file size exceeds" in err_msg:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=response.error)
+        elif "signature" in err_msg or "mime type" in err_msg or "format" in err_msg:
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=response.error)
+        elif "validation failed" in err_msg or "corrupted" in err_msg or "dimension" in err_msg:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=response.error)
+        elif "capacity limit reached" in err_msg or "queue wait timeout" in err_msg:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=response.error)
+        elif "timeout" in err_msg:
             raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=response.error)
         else:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=response.error)

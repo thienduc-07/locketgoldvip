@@ -23,7 +23,18 @@ class Settings(BaseSettings):
     MAX_IMAGE_DIMENSION: int = 4096
     MAX_PROCESSING_TIMEOUT_SEC: float = 15.0
     MAX_CONCURRENT_TASKS: int = 5
+    MAX_QUEUE_WAIT_SEC: float = 2.0
     TEMP_DIR: str = "/tmp/ai_engine"
+
+    # CORS Policy Settings
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
+    CORS_ALLOW_CREDENTIALS: bool = False
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        if not self.CORS_ORIGINS or self.CORS_ORIGINS.strip() == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     # MIME types allowed
     ALLOWED_MIME_TYPES: List[str] = [

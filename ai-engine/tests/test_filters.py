@@ -34,7 +34,9 @@ def test_beauty_makeup_transformation(sample_portrait_bytes):
 
     # 3. Metadata validation
     assert meta["skin_smoothing_applied"] is True
-    assert "identity_preservation_score" in meta
+    assert meta["applied"] is True
+    assert meta["success"] is True
+    assert "identity_notes" in meta
 
 
 # ---------------------------------------------------------------------------
@@ -43,19 +45,25 @@ def test_beauty_makeup_transformation(sample_portrait_bytes):
 def test_glasses_transformation(sample_portrait_bytes, sample_landscape_bytes):
     engine = GlassesFilterEngine()
 
-    # Test with portrait
+    # Test with portrait (faces detected -> filter applied)
     port_np = get_numpy_from_bytes(sample_portrait_bytes)
     out_port, meta_port = engine.apply(port_np, intensity=1.0)
     assert out_port.shape == port_np.shape
     assert out_port.dtype == np.uint8
+    assert meta_port["applied"] is True
+    assert meta_port["success"] is True
+    assert meta_port["faces_detected"] >= 1
     assert np.mean(np.abs(port_np.astype(float) - out_port.astype(float))) > 0.5
 
-    # Test with non-face image (fallback path)
+    # Test with non-face image (honest handling: applied=False, no tint fallback)
     land_np = get_numpy_from_bytes(sample_landscape_bytes)
     out_land, meta_land = engine.apply(land_np, intensity=1.0)
     assert out_land.shape == land_np.shape
+    assert meta_land["applied"] is False
+    assert meta_land["success"] is False
     assert meta_land["faces_detected"] == 0
-    assert np.mean(np.abs(land_np.astype(float) - out_land.astype(float))) > 0.5
+    assert len(meta_land["warnings"]) > 0
+    assert np.array_equal(out_land, land_np), "Original image must remain untouched when no face is detected"
 
 
 # ---------------------------------------------------------------------------
@@ -64,18 +72,25 @@ def test_glasses_transformation(sample_portrait_bytes, sample_landscape_bytes):
 def test_beard_transformation(sample_portrait_bytes, sample_landscape_bytes):
     engine = BeardFilterEngine()
 
+    # Test with portrait (faces detected -> filter applied)
     port_np = get_numpy_from_bytes(sample_portrait_bytes)
     out_port, meta_port = engine.apply(port_np, intensity=1.0)
     assert out_port.shape == port_np.shape
     assert out_port.dtype == np.uint8
+    assert meta_port["applied"] is True
+    assert meta_port["success"] is True
+    assert meta_port["faces_detected"] >= 1
     assert np.mean(np.abs(port_np.astype(float) - out_port.astype(float))) > 0.5
 
-    # Non-face fallback
+    # Test with non-face image (honest handling: applied=False, no barbershop tint fallback)
     land_np = get_numpy_from_bytes(sample_landscape_bytes)
     out_land, meta_land = engine.apply(land_np, intensity=1.0)
     assert out_land.shape == land_np.shape
+    assert meta_land["applied"] is False
+    assert meta_land["success"] is False
     assert meta_land["faces_detected"] == 0
-    assert np.mean(np.abs(land_np.astype(float) - out_land.astype(float))) > 0.5
+    assert len(meta_land["warnings"]) > 0
+    assert np.array_equal(out_land, land_np), "Original image must remain untouched when no face is detected"
 
 
 # ---------------------------------------------------------------------------
@@ -152,4 +167,4 @@ def test_intensity_scaling(sample_portrait_bytes):
     mae_low = np.mean(np.abs(img_np.astype(float) - out_low.astype(float)))
     mae_high = np.mean(np.abs(img_np.astype(float) - out_high.astype(float)))
 
-    assert mae_high >= mae_low, f"Higher intensity ({mae_high}) should equal or exceed lower intensity ({mae_low})"
+    assert mae_high > mae_low, f"Higher intensity ({mae_high}) must strictly exceed lower intensity ({mae_low})"

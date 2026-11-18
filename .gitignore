@@ -14,9 +14,35 @@ node_modules/
 dist/
 build/
 *.exe
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ai-engine/.venv/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment variables
 .env
 .env.*
 .env.local
+!.env.example
 
-.vercel
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
 .playwright-mcp/
