@@ -133,12 +133,26 @@ var FULL_CAMERA_FILTER_CONFIG = {"showFilterButton":true,"allowsCustomFilters":t
         // ============================================================
         obj.entries.enable_send_to_self = "true";
         obj.entries.send_to_self_enabled = "true";
+        obj.entries.send_to_self_only_mode = "always_enabled";
         obj.entries.enable_journal = "true";
         obj.entries.journal_enabled = "true";
         obj.entries.history_enabled = "true";
         obj.entries.albums_enabled = "true";
         obj.entries.can_send_to_self = "true";
         obj.entries.allow_send_to_self = "true";
+        obj.entries.journal_activity_bar_enabled = "true";
+        obj.entries.journal_settings = JSON.stringify({
+            debug_menu_enabled: false,
+            focus_animation: true,
+            compact_header: true,
+            friends_button: true,
+            reverse_scroll_direction: false,
+            streak_visualization: true,
+            streak_visualization_style: "gradient",
+            streak_header_minimum_count: 0,
+            streak_visualization_minimum_count: 2,
+            overlay_indicators: { location: true, music: true, static_content: true, weather: true }
+        });
 
         // ============================================================
         // 3. VOICE NOTES / AUDIO MESSAGES
@@ -422,17 +436,17 @@ var FULL_CAMERA_FILTER_CONFIG = {"showFilterButton":true,"allowsCustomFilters":t
                 sheet_enabled: true,
                 open_sheet_immediately: false,
                 pickerFilters: FULL_CAMERA_FILTER_CONFIG.pickerFilters,
-                picker_filters: FULL_CAMERA_FILTER_CONFIG.picker_filters
+                picker_filters: FULL_CAMERA_FILTER_CONFIG.picker_filters,
+                sheetFilters: FULL_CAMERA_FILTER_CONFIG.sheetFilters,
+                sheet_filters: FULL_CAMERA_FILTER_CONFIG.sheet_filters,
+                filterGroups: FULL_CAMERA_FILTER_CONFIG.filterGroups,
+                filter_groups: FULL_CAMERA_FILTER_CONFIG.filter_groups
             }
         };
 
-        var pbAndFrameFilters = FULL_CAMERA_FILTER_CONFIG.remoteFilters.filter(function(f) {
-            return f.category === "Photobooth" || f.category === "Frames";
-        });
-
         obj.entries.camera_filter_config = JSON.stringify(FULL_CAMERA_FILTER_CONFIG);
         obj.entries.celebrity_filter_config = JSON.stringify(locketCelebrityFilterConfig);
-        obj.entries.customPhotoboothFilters = JSON.stringify(pbAndFrameFilters);
+        obj.entries.customPhotoboothFilters = JSON.stringify(FULL_CAMERA_FILTER_CONFIG.remoteFilters);
 
         // ============================================================
         // 7. VIP CAPTIONS & OVERLAYS
